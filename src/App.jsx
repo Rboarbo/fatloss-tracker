@@ -8,11 +8,17 @@ export default function App() {
   const [tab, setTab] = useState('dashboard')
   const [entries, setEntries] = useState([])
   const [settings, setSettings] = useState(null)
+  const [logDate, setLogDate] = useState(new Date().toISOString().slice(0, 10))
 
   useEffect(() => {
     setEntries(getEntries())
     setSettings(getSettings())
   }, [])
+
+  function handleSelectDate(date) {
+    setLogDate(date)
+    setTab('log')
+  }
 
   if (!settings) return null
 
@@ -27,9 +33,24 @@ export default function App() {
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full">
-        {tab === 'dashboard' && <Dashboard entries={entries} settings={settings} />}
-        {tab === 'log' && <LogEntry entries={entries} settings={settings} onEntriesChange={setEntries} />}
-        {tab === 'settings' && <Settings settings={settings} onSettingsChange={setSettings} />}
+        {tab === 'dashboard' && (
+          <Dashboard
+            entries={entries}
+            settings={settings}
+            onSelectDate={handleSelectDate}
+          />
+        )}
+        {tab === 'log' && (
+          <LogEntry
+            entries={entries}
+            settings={settings}
+            onEntriesChange={setEntries}
+            initialDate={logDate}
+          />
+        )}
+        {tab === 'settings' && (
+          <Settings settings={settings} onSettingsChange={setSettings} />
+        )}
       </main>
 
       <nav className="bg-white border-t border-slate-200 shadow-up">
