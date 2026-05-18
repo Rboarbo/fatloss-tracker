@@ -30,120 +30,148 @@ export default function LogEntry({ entries, settings, onEntriesChange }) {
       ...(form.hips ? { hips: parseFloat(form.hips) } : {}),
       ...(form.notes ? { notes: form.notes } : {}),
     }
-    const updated = addEntry(entry)
-    onEntriesChange(updated)
+    onEntriesChange(addEntry(entry))
     setSaved(true)
   }
 
   function handleDelete(date) {
     if (!confirm(`Meting van ${date} verwijderen?`)) return
-    const updated = deleteEntry(date)
-    onEntriesChange(updated)
+    onEntriesChange(deleteEntry(date))
   }
 
   return (
-    <div className="space-y-6">
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl p-4 shadow-sm space-y-4">
-        <h2 className="text-sm font-medium text-gray-700">Meting invoeren</h2>
+    <div className="space-y-4">
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-5 shadow-sm space-y-5">
+        {/* Date field — prominent */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Datum</p>
+            <input
+              type="date"
+              name="date"
+              value={form.date}
+              onChange={handleChange}
+              className="mt-1 text-slate-800 font-semibold text-base bg-transparent focus:outline-none"
+              required
+            />
+          </div>
+          {existing && (
+            <span className="text-xs bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-full font-medium">
+              Vandaag bijgewerkt
+            </span>
+          )}
+        </div>
 
-        <Field label="Datum">
-          <input
-            type="date"
-            name="date"
-            value={form.date}
-            onChange={handleChange}
-            className="input"
-            required
-          />
-        </Field>
+        <hr className="border-slate-100" />
 
-        <Field label={`Gewicht (${settings.unit})`}>
-          <input
-            type="number"
-            name="weight"
-            value={form.weight}
-            onChange={handleChange}
-            step="0.1"
-            placeholder="bijv. 82.5"
-            className="input"
-            required
-          />
-        </Field>
+        {/* Weight — main field, visually dominant */}
+        <div>
+          <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+            Gewicht ({settings.unit})
+          </label>
+          <div className="flex items-end gap-2 mt-2">
+            <input
+              type="number"
+              name="weight"
+              value={form.weight}
+              onChange={handleChange}
+              step="0.1"
+              placeholder="0.0"
+              className="text-4xl font-bold text-slate-800 w-32 bg-transparent focus:outline-none placeholder:text-slate-200"
+              required
+            />
+            <span className="text-lg text-slate-400 mb-1">{settings.unit}</span>
+          </div>
+        </div>
 
-        <Field label="Calorieën (kcal)" optional>
-          <input
-            type="number"
-            name="calories"
-            value={form.calories}
-            onChange={handleChange}
-            placeholder="bijv. 1800"
-            className="input"
-          />
-        </Field>
+        <hr className="border-slate-100" />
 
-        <Field label="Taillemaat (cm)" optional>
-          <input
-            type="number"
-            name="waist"
-            value={form.waist}
-            onChange={handleChange}
-            step="0.5"
-            placeholder="bijv. 88"
-            className="input"
-          />
-        </Field>
+        {/* Optional fields */}
+        <div className="space-y-4">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Optioneel</p>
 
-        <Field label="Heupmaat (cm)" optional>
-          <input
-            type="number"
-            name="hips"
-            value={form.hips}
-            onChange={handleChange}
-            step="0.5"
-            placeholder="bijv. 100"
-            className="input"
-          />
-        </Field>
-
-        <Field label="Notitie" optional>
-          <input
-            type="text"
-            name="notes"
-            value={form.notes}
-            onChange={handleChange}
-            placeholder="bijv. cheat day"
-            className="input"
-          />
-        </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <OptField
+              label="Calorieën"
+              name="calories"
+              value={form.calories}
+              onChange={handleChange}
+              unit="kcal"
+              placeholder="1800"
+              color="amber"
+            />
+            <OptField
+              label="Taille"
+              name="waist"
+              value={form.waist}
+              onChange={handleChange}
+              unit="cm"
+              placeholder="88"
+              step="0.5"
+              color="violet"
+            />
+            <OptField
+              label="Heupen"
+              name="hips"
+              value={form.hips}
+              onChange={handleChange}
+              unit="cm"
+              placeholder="100"
+              step="0.5"
+              color="violet"
+            />
+            <div className="col-span-2">
+              <label className="text-xs text-slate-400">Notitie</label>
+              <input
+                type="text"
+                name="notes"
+                value={form.notes}
+                onChange={handleChange}
+                placeholder="bijv. cheat day, ziek..."
+                className="input mt-1"
+              />
+            </div>
+          </div>
+        </div>
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 rounded-xl text-sm font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all shadow-sm shadow-emerald-200"
         >
           Opslaan
         </button>
 
         {saved && (
-          <p className="text-center text-sm text-green-600">Opgeslagen!</p>
+          <p className="text-center text-sm text-emerald-600 font-medium">✓ Opgeslagen!</p>
         )}
       </form>
 
       {entries.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <h2 className="text-sm font-medium text-gray-600 px-4 pt-4 pb-2">Alle metingen</h2>
-          <ul className="divide-y divide-gray-100">
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <h2 className="text-sm font-semibold text-slate-700 px-4 pt-4 pb-3">Alle metingen</h2>
+          <ul className="divide-y divide-slate-50">
             {[...entries].reverse().map((e) => (
-              <li key={e.date} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                <div>
-                  <span className="font-medium">{e.date}</span>
-                  <span className="text-gray-500 ml-3">{e.weight} {settings.unit}</span>
-                  {e.calories && <span className="text-gray-400 ml-2">{e.calories} kcal</span>}
+              <li key={e.date} className="flex items-center gap-3 px-4 py-3 text-sm">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-800">{e.weight} {settings.unit}</span>
+                    {e.calories && (
+                      <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                        {e.calories} kcal
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">{e.date}</p>
                 </div>
                 <button
                   onClick={() => handleDelete(e.date)}
-                  className="text-red-400 hover:text-red-600 text-xs ml-2"
+                  className="text-slate-300 hover:text-red-400 transition-colors p-1"
+                  aria-label="Verwijderen"
                 >
-                  ✕
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
                 </button>
               </li>
             ))}
@@ -154,13 +182,26 @@ export default function LogEntry({ entries, settings, onEntriesChange }) {
   )
 }
 
-function Field({ label, optional, children }) {
+function OptField({ label, name, value, onChange, unit, placeholder, step = '1', color }) {
+  const colors = {
+    amber: 'focus:ring-amber-400',
+    violet: 'focus:ring-violet-400',
+  }
   return (
     <div>
-      <label className="block text-xs text-gray-500 mb-1">
-        {label} {optional && <span className="text-gray-300">(optioneel)</span>}
-      </label>
-      {children}
+      <label className="text-xs text-slate-400">{label}</label>
+      <div className="flex items-center gap-1 mt-1">
+        <input
+          type="number"
+          name={name}
+          value={value}
+          onChange={onChange}
+          step={step}
+          placeholder={placeholder}
+          className={`input flex-1 focus:ring-2 ${colors[color]}`}
+        />
+        <span className="text-xs text-slate-400 flex-shrink-0">{unit}</span>
+      </div>
     </div>
   )
 }

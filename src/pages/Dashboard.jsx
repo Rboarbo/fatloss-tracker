@@ -1,90 +1,259 @@
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
+  AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 
 export default function Dashboard({ entries, settings }) {
   if (entries.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-        <p className="text-lg">Nog geen metingen</p>
-        <p className="text-sm mt-1">Ga naar Invoer om je eerste meting toe te voegen.</p>
+      <div className="flex flex-col items-center justify-center h-64 text-center px-8">
+        <div className="text-5xl mb-4">📊</div>
+        <p className="text-slate-700 font-semibold">Nog geen metingen</p>
+        <p className="text-slate-400 text-sm mt-1">Voeg je eerste meting in via het tabblad Invoer.</p>
       </div>
     )
   }
 
   const latest = entries[entries.length - 1]
-  const first = entries[0]
-  const lost = settings.startWeight
-    ? settings.startWeight - latest.weight
-    : first.weight - latest.weight
-  const toGo =
-    settings.goalWeight && latest.weight > settings.goalWeight
-      ? latest.weight - settings.goalWeight
+  const prev = entries.length > 1 ? entries[entries.length - 2] : null
+  const startWeight = settings.startWeight ?? entries[0].weight
+  const lost = startWeight - latest.weight
+  const toGo = settings.goalWeight ? Math.max(0, latest.weight - settings.goalWeight) : null
+  const progress =
+    settings.goalWeight && startWeight !== settings.goalWeight
+      ? Math.min(100, Math.max(0, (lost / (startWeight - settings.goalWeight)) * 100))
       : null
+  const trend = prev ? latest.weight - prev.weight : null
+
+  const hasCalories = entries.some((e) => e.calories)
+  const hasWaist = entries.some((e) => e.waist)
 
   const chartData = entries.map((e) => ({
-    date: e.date.slice(5), // MM-DD
+    date: shortDate(e.date),
     weight: e.weight,
-    calories: e.calories ?? undefined,
+    calories: e.calories ?? null,
+    waist: e.waist ?? null,
   }))
 
   return (
-    <div className="space-y-6">
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Huidig gewicht" value={`${latest.weight} ${settings.unit}`} />
-        <StatCard
-          label="Verloren"
-          value={`${lost > 0 ? '-' : '+'}${Math.abs(lost).toFixed(1)} ${settings.unit}`}
-          highlight={lost > 0}
-        />
-        {toGo !== null && (
-          <StatCard label="Nog te gaan" value={`${toGo.toFixed(1)} ${settings.unit}`} />
+    <div className="space-y-4">
+      {/* Hero card */}
+      <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 text-white shadow-lg">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-emerald-100 text-xs font-medium uppercase tracking-wide">Huidig gewicht</p>
+            <p className="text-5xl font-bold mt-1 leading-none">
+              {latest.weight}
+              <span className="text-2xl font-normal ml-1">{settings.unit}</span>
+            </p>
+            {trend !== null && (
+              <p className={`text-sm mt-2 font-medium ${trend <= 0 ? 'text-emerald-200' : 'text-red-300'}`}>
+                {trend <= 0 ? '↓' : '↑'} {Math.abs(trend).toFixed(1)} {settings.unit} t.o.v. vorige meting
+              </p>
+            )}
+          </div>
+          <div className="text-right bg-white/10 rounded-xl px-4 py-3">
+            <p className="text-emerald-100 text-xs font-medium uppercase tracking-wide">Verloren</p>
+            <p className="text-2xl font-bold mt-0.5">
+              {lost >= 0 ? '-' : '+'}{Math.abs(lost).toFixed(1)}
+            </p>
+            <p className="text-emerald-200 text-xs">{settings.unit}</p>
+          </div>
+        </div>
+
+        {progress !== null && (
+          <div className="mt-5">
+            <div className="flex justify-between text-xs text-emerald-100 mb-2">
+              <span>Voortgang naar doel ({settings.goalWeight} {settings.unit})</span>
+              <span className="font-semibold">{Math.round(progress)}%</span>
+            </div>
+            <div className="h-2.5 bg-white/20 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            {toGo !== null && toGo > 0 && (
+              <p className="text-xs text-emerald-100 mt-2">Nog {toGo.toFixed(1)} {settings.unit} te gaan</p>
+            )}
+            {toGo === 0 && (
+              <p className="text-xs text-white font-semibold mt-2">🎉 Doel bereikt!</p>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Weight chart */}
-      <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h2 className="text-sm font-medium text-gray-600 mb-3">Gewichtsverloop</h2>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard label="Metingen" value={entries.length} sub="totaal" accent="slate" />
+        <StatCard
+          label="Gem. verlies"
+          value={entries.length > 1 ? (lost / entries.length).toFixed(2) : '–'}
+          sub={`${settings.unit}/dag`}
+          accent="emerald"
+        />
+        <StatCard
+          label="Doelgewicht"
+          value={settings.goalWeight ?? '–'}
+          sub={settings.goalWeight ? settings.unit : 'stel in'}
+          accent="teal"
+        />
+      </div>
+
+      {/* Weight area chart */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-700 mb-1">Gewichtsverloop</h2>
+        <p className="text-xs text-slate-400 mb-4">{settings.unit} per dag</p>
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 10, fill: '#94a3b8' }}
+              axisLine={false}
+              tickLine={false}
+            />
             <YAxis
               domain={['auto', 'auto']}
-              tick={{ fontSize: 11 }}
-              unit={` ${settings.unit}`}
+              tick={{ fontSize: 10, fill: '#94a3b8' }}
+              axisLine={false}
+              tickLine={false}
             />
-            <Tooltip formatter={(v) => [`${v} ${settings.unit}`, 'Gewicht']} />
-            <Line
+            <Tooltip
+              contentStyle={{
+                background: '#1e293b',
+                border: 'none',
+                borderRadius: 10,
+                color: 'white',
+                fontSize: 12,
+                padding: '8px 12px',
+              }}
+              formatter={(v) => [`${v} ${settings.unit}`, 'Gewicht']}
+            />
+            {settings.goalWeight && (
+              <ReferenceLine
+                y={settings.goalWeight}
+                stroke="#f59e0b"
+                strokeDasharray="5 4"
+                label={{ value: `Doel: ${settings.goalWeight}`, fill: '#f59e0b', fontSize: 10, position: 'insideTopRight' }}
+              />
+            )}
+            <Area
               type="monotone"
               dataKey="weight"
-              stroke="#3b82f6"
-              strokeWidth={2}
-              dot={{ r: 3 }}
-              activeDot={{ r: 5 }}
+              stroke="#10b981"
+              strokeWidth={2.5}
+              fill="url(#weightGrad)"
+              dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }}
+              activeDot={{ r: 5, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
 
+      {/* Calorie bar chart */}
+      {hasCalories && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-700 mb-1">Calorieën</h2>
+          <p className="text-xs text-slate-400 mb-4">kcal per dag</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart
+              data={chartData.filter((d) => d.calories)}
+              margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <Tooltip
+                contentStyle={{
+                  background: '#1e293b',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: 'white',
+                  fontSize: 12,
+                  padding: '8px 12px',
+                }}
+                formatter={(v) => [`${v} kcal`, 'Calorieën']}
+              />
+              <Bar dataKey="calories" fill="#f59e0b" radius={[5, 5, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Waist area chart */}
+      {hasWaist && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-700 mb-1">Taillemeting</h2>
+          <p className="text-xs text-slate-400 mb-4">centimeter per dag</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <AreaChart
+              data={chartData.filter((d) => d.waist)}
+              margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="waistGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <Tooltip
+                contentStyle={{
+                  background: '#1e293b',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: 'white',
+                  fontSize: 12,
+                  padding: '8px 12px',
+                }}
+                formatter={(v) => [`${v} cm`, 'Taille']}
+              />
+              <Area
+                type="monotone"
+                dataKey="waist"
+                stroke="#8b5cf6"
+                strokeWidth={2}
+                fill="url(#waistGrad)"
+                dot={{ r: 3, fill: '#8b5cf6', strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: '#8b5cf6', strokeWidth: 2, stroke: '#fff' }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {/* Recent entries */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <h2 className="text-sm font-medium text-gray-600 px-4 pt-4 pb-2">Recente metingen</h2>
-        <ul className="divide-y divide-gray-100">
-          {[...entries].reverse().slice(0, 7).map((e) => (
-            <li key={e.date} className="flex items-center justify-between px-4 py-2.5 text-sm">
-              <span className="text-gray-500">{formatDate(e.date)}</span>
-              <div className="flex gap-4">
-                <span className="font-medium">{e.weight} {settings.unit}</span>
-                {e.calories && <span className="text-gray-400">{e.calories} kcal</span>}
-                {e.waist && <span className="text-gray-400">taille {e.waist} cm</span>}
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <h2 className="text-sm font-semibold text-slate-700 px-4 pt-4 pb-3">Recente metingen</h2>
+        <ul className="divide-y divide-slate-50">
+          {[...entries].reverse().slice(0, 8).map((e, i) => (
+            <li key={e.date} className="flex items-center gap-3 px-4 py-3">
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${i === 0 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+              <span className="text-slate-400 text-xs w-14 flex-shrink-0">{shortDate(e.date)}</span>
+              <span className="font-semibold text-slate-800 text-sm flex-1">
+                {e.weight} {settings.unit}
+              </span>
+              <div className="flex gap-1.5 flex-wrap justify-end">
+                {e.calories && (
+                  <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">
+                    {e.calories} kcal
+                  </span>
+                )}
+                {e.waist && (
+                  <span className="text-xs text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full font-medium">
+                    {e.waist} cm
+                  </span>
+                )}
               </div>
             </li>
           ))}
@@ -94,20 +263,21 @@ export default function Dashboard({ entries, settings }) {
   )
 }
 
-function StatCard({ label, value, highlight }) {
+function StatCard({ label, value, sub, accent }) {
+  const styles = {
+    slate: 'bg-slate-50 text-slate-700',
+    emerald: 'bg-emerald-50 text-emerald-700',
+    teal: 'bg-teal-50 text-teal-700',
+  }
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm text-center">
-      <p className="text-xs text-gray-400 mb-1">{label}</p>
-      <p className={`text-lg font-semibold ${highlight ? 'text-green-600' : 'text-gray-800'}`}>
-        {value}
-      </p>
+    <div className={`${styles[accent]} rounded-xl p-3`}>
+      <p className="text-xs text-slate-500 leading-tight">{label}</p>
+      <p className="text-xl font-bold mt-1 leading-none">{value}</p>
+      <p className="text-xs opacity-60 mt-0.5">{sub}</p>
     </div>
   )
 }
 
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString('nl-NL', {
-    day: 'numeric',
-    month: 'short',
-  })
+function shortDate(iso) {
+  return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })
 }

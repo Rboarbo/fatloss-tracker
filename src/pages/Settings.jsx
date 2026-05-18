@@ -10,6 +10,11 @@ export default function Settings({ settings, onSettingsChange }) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
   }
 
+  function setUnit(unit) {
+    setSaved(false)
+    setForm((f) => ({ ...f, unit }))
+  }
+
   function handleSubmit(e) {
     e.preventDefault()
     const updated = {
@@ -23,68 +28,95 @@ export default function Settings({ settings, onSettingsChange }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl p-4 shadow-sm space-y-4">
-      <h2 className="text-sm font-medium text-gray-700">Instellingen</h2>
-
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Eenheid</label>
-        <select name="unit" value={form.unit} onChange={handleChange} className="input">
-          <option value="kg">Kilogram (kg)</option>
-          <option value="lbs">Pounds (lbs)</option>
-        </select>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Unit toggle */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-700 mb-4">Eenheid</h2>
+        <div className="flex rounded-xl overflow-hidden border border-slate-200">
+          {['kg', 'lbs'].map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => setUnit(u)}
+              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                form.unit === u
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-white text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              {u === 'kg' ? 'Kilogram (kg)' : 'Pounds (lbs)'}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">
-          Startgewicht ({form.unit})
-        </label>
-        <input
-          type="number"
+      {/* Weight targets */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+        <h2 className="text-sm font-semibold text-slate-700">Gewichtsdoelen</h2>
+
+        <WeightField
+          label="Startgewicht"
           name="startWeight"
           value={form.startWeight ?? ''}
           onChange={handleChange}
-          step="0.1"
+          unit={form.unit}
           placeholder="bijv. 90"
-          className="input"
+          hint="Wordt gebruikt voor de voortgangsberekening."
         />
-      </div>
 
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">
-          Doelgewicht ({form.unit})
-        </label>
-        <input
-          type="number"
+        <WeightField
+          label="Doelgewicht"
           name="goalWeight"
           value={form.goalWeight ?? ''}
           onChange={handleChange}
-          step="0.1"
+          unit={form.unit}
           placeholder="bijv. 75"
-          className="input"
+          hint="Zichtbaar als stippellijn in de grafiek."
         />
-      </div>
 
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Startdatum</label>
-        <input
-          type="date"
-          name="startDate"
-          value={form.startDate ?? ''}
-          onChange={handleChange}
-          className="input"
-        />
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Startdatum</label>
+          <input
+            type="date"
+            name="startDate"
+            value={form.startDate ?? ''}
+            onChange={handleChange}
+            className="input"
+          />
+        </div>
       </div>
 
       <button
         type="submit"
-        className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+        className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 rounded-xl text-sm font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all shadow-sm shadow-emerald-200"
       >
-        Opslaan
+        Instellingen opslaan
       </button>
 
       {saved && (
-        <p className="text-center text-sm text-green-600">Instellingen opgeslagen!</p>
+        <p className="text-center text-sm text-emerald-600 font-medium">✓ Opgeslagen!</p>
       )}
     </form>
+  )
+}
+
+function WeightField({ label, name, value, onChange, unit, placeholder, hint }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          name={name}
+          value={value}
+          onChange={onChange}
+          step="0.1"
+          placeholder={placeholder}
+          className="input flex-1"
+        />
+        <span className="text-sm text-slate-400 w-8">{unit}</span>
+      </div>
+      {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
+    </div>
   )
 }
