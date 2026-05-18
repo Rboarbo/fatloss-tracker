@@ -3,6 +3,7 @@ import { getEntries, getSettings } from './lib/storage'
 import Dashboard from './pages/Dashboard'
 import LogEntry from './pages/LogEntry'
 import Settings from './pages/Settings'
+import AppLogo from './components/AppLogo'
 
 export default function App() {
   const [tab, setTab] = useState('dashboard')
@@ -24,8 +25,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
-      <header className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 py-4 flex items-center gap-3 shadow-lg">
-        <span className="text-2xl">🔥</span>
+      <header className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 py-3 flex items-center gap-3 shadow-lg">
+        <AppLogo size={36} />
         <div>
           <h1 className="text-white font-bold text-lg leading-none">Fatloss Tracker</h1>
           <p className="text-slate-400 text-xs mt-0.5">Elke dag telt</p>
