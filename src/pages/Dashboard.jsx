@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import WeekView from '../components/WeekView'
 import SportStats from '../components/SportStats'
+import MilonChart from '../components/MilonChart'
 import { SPORT_CONFIG } from '../lib/sport-config'
 
 export default function Dashboard({ entries, settings, onSelectDate }) {
@@ -225,6 +226,9 @@ export default function Dashboard({ entries, settings, onSelectDate }) {
 
       {/* Sport statistics */}
       <SportStats entries={entries} />
+
+      {/* Milon progression chart */}
+      <MilonChart entries={entries} />
 
       {/* Recent entries */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">

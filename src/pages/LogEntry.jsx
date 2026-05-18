@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import {
   Moon, Dumbbell, Target, Trophy, Bike,
-  Footprints, Wind, MoreHorizontal,
+  Footprints, Wind, MoreHorizontal, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { addEntry, deleteEntry } from '../lib/storage'
-import { SPORT_CONFIG, WORKOUT_FIELDS, sportColor } from '../lib/sport-config'
+import { SPORT_CONFIG, WORKOUT_FIELDS } from '../lib/sport-config'
 
 const SPORT_ICONS = { Moon, Dumbbell, Target, Trophy, Bike, Footprints, Wind, MoreHorizontal }
 
@@ -12,22 +12,6 @@ function SportIcon({ type, size = 14 }) {
   const name = SPORT_CONFIG[type]?.icon ?? 'MoreHorizontal'
   const Icon = SPORT_ICONS[name]
   return Icon ? <Icon size={size} /> : null
-}
-
-function emptyForm(date) {
-  return {
-    date,
-    weight: '',
-    calories: '',
-    waist: '',
-    hips: '',
-    training: 'rust',
-    duration: '',
-    trainingKcal: '',
-    avgHR: '',
-    distance: '',
-    notes: '',
-  }
 }
 
 function entryToForm(e, date) {
@@ -43,6 +27,14 @@ function entryToForm(e, date) {
     avgHR: e?.avgHR ?? '',
     distance: e?.distance ?? '',
     notes: e?.notes ?? '',
+    milonKcalTotal: e?.milonKcalTotal ?? '',
+    milonKcalKracht: e?.milonKcalKracht ?? '',
+    milonKcalCardio: e?.milonKcalCardio ?? '',
+    milonKrachtScore: e?.milonKrachtScore ?? '',
+    milonCardioScore: e?.milonCardioScore ?? '',
+    milonTopPct: e?.milonTopPct ?? '',
+    milonTon: e?.milonTon ?? '',
+    milonReps: e?.milonReps ?? '',
   }
 }
 
@@ -53,8 +45,8 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
   const existing = entries.find((e) => e.date === startDate)
   const [form, setForm] = useState(() => entryToForm(existing, startDate))
   const [saved, setSaved] = useState(false)
+  const [milonOpen, setMilonOpen] = useState(true)
 
-  // Re-sync form when initialDate changes (e.g. clicked from WeekView)
   useEffect(() => {
     const e = entries.find((en) => en.date === startDate)
     setForm(entryToForm(e, startDate))
@@ -68,6 +60,14 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
 
   function handleSubmit(e) {
     e.preventDefault()
+
+    // Auto-fill milonKcalTotal if kracht + cardio filled but total is empty
+    const kcalKracht = form.milonKcalKracht ? parseInt(form.milonKcalKracht, 10) : null
+    const kcalCardio = form.milonKcalCardio ? parseInt(form.milonKcalCardio, 10) : null
+    const kcalTotal = form.milonKcalTotal
+      ? parseInt(form.milonKcalTotal, 10)
+      : kcalKracht && kcalCardio ? kcalKracht + kcalCardio : null
+
     const entry = {
       date: form.date,
       weight: form.weight !== '' ? parseFloat(form.weight) : null,
@@ -80,7 +80,19 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
       ...(form.avgHR ? { avgHR: parseInt(form.avgHR, 10) } : {}),
       ...(form.distance ? { distance: parseFloat(form.distance) } : {}),
       ...(form.notes ? { notes: form.notes } : {}),
+      // Milon-specific
+      ...(form.training === 'milon' ? {
+        ...(kcalTotal ? { milonKcalTotal: kcalTotal } : {}),
+        ...(kcalKracht ? { milonKcalKracht: kcalKracht } : {}),
+        ...(kcalCardio ? { milonKcalCardio: kcalCardio } : {}),
+        ...(form.milonKrachtScore ? { milonKrachtScore: parseInt(form.milonKrachtScore, 10) } : {}),
+        ...(form.milonCardioScore ? { milonCardioScore: parseInt(form.milonCardioScore, 10) } : {}),
+        ...(form.milonTopPct ? { milonTopPct: form.milonTopPct } : {}),
+        ...(form.milonTon ? { milonTon: parseFloat(form.milonTon) } : {}),
+        ...(form.milonReps ? { milonReps: parseInt(form.milonReps, 10) } : {}),
+      } : {}),
     }
+
     onEntriesChange(addEntry(entry))
     setSaved(true)
   }
@@ -90,8 +102,9 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
     onEntriesChange(deleteEntry(date))
   }
 
-  const visibleFields = WORKOUT_FIELDS[form.training] ?? []
-  const showWorkoutSection = visibleFields.length > 0
+  const isMilon = form.training === 'milon'
+  const visibleFields = isMilon ? [] : (WORKOUT_FIELDS[form.training] ?? [])
+  const showGenericWorkout = visibleFields.length > 0
 
   return (
     <div className="space-y-4">
@@ -168,8 +181,67 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
           </div>
         </div>
 
-        {/* Workout details — conditional */}
-        {showWorkoutSection && (
+        {/* Milon ME sectie */}
+        {isMilon && (
+          <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: '#FF6B1A30' }}>
+            <button
+              type="button"
+              onClick={() => setMilonOpen((o) => !o)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left"
+              style={{ backgroundColor: '#FF6B1A10' }}
+            >
+              <div className="flex items-center gap-2">
+                <Dumbbell size={14} style={{ color: '#FF6B1A' }} />
+                <span className="text-sm font-semibold" style={{ color: '#FF6B1A' }}>Milon ME data</span>
+              </div>
+              {milonOpen
+                ? <ChevronUp size={14} style={{ color: '#FF6B1A' }} />
+                : <ChevronDown size={14} style={{ color: '#FF6B1A' }} />
+              }
+            </button>
+
+            {milonOpen && (
+              <div className="p-4 space-y-3 bg-white">
+                <div className="grid grid-cols-2 gap-3">
+                  <MilonField label="Totaal kcal" name="milonKcalTotal" value={form.milonKcalTotal} onChange={handleChange} placeholder="344" hint="KCAL onderaan" />
+                  <MilonField label="Kcal kracht" name="milonKcalKracht" value={form.milonKcalKracht} onChange={handleChange} placeholder="30" hint="stacked bar donker" />
+                  <MilonField label="Kcal cardio" name="milonKcalCardio" value={form.milonKcalCardio} onChange={handleChange} placeholder="170" hint="stacked bar licht" />
+                  <MilonField label="Kracht-score" name="milonKrachtScore" value={form.milonKrachtScore} onChange={handleChange} placeholder="70" hint="# KRACHT (↓ beter)" />
+                  <MilonField label="Cardio-score" name="milonCardioScore" value={form.milonCardioScore} onChange={handleChange} placeholder="49" hint="# CARDIO (↓ beter)" />
+                  <div>
+                    <label className="text-xs text-slate-400">Top % zone</label>
+                    <p className="text-xs text-slate-300 mb-1">TOP %-zone</p>
+                    <input
+                      type="text"
+                      name="milonTopPct"
+                      value={form.milonTopPct}
+                      onChange={handleChange}
+                      placeholder="50-60"
+                      className="input"
+                    />
+                  </div>
+                  <MilonField label="Ton" name="milonTon" value={form.milonTon} onChange={handleChange} placeholder="10" hint="TON" step="0.1" />
+                  <MilonField label="Herhalingen" name="milonReps" value={form.milonReps} onChange={handleChange} placeholder="251" hint="HERHALINGEN" />
+                  <MilonField label="Duur" name="duration" value={form.duration} onChange={handleChange} placeholder="35" hint="minuten" unit="min" />
+                  <div className="col-span-2">
+                    <label className="text-xs text-slate-400">Notitie</label>
+                    <textarea
+                      name="notes"
+                      value={form.notes}
+                      onChange={handleChange}
+                      placeholder="Opmerkingen over de sessie..."
+                      rows={2}
+                      className="input mt-1 resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Generic workout details (non-milon sports) */}
+        {showGenericWorkout && (
           <div className="bg-slate-50 rounded-xl p-4 space-y-3">
             <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Workout details</p>
             <div className="grid grid-cols-2 gap-3">
@@ -203,7 +275,7 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
         )}
 
         {/* Rust/Anders: only notes */}
-        {!showWorkoutSection && (
+        {!showGenericWorkout && !isMilon && (
           <div>
             <label className="text-xs text-slate-400">Notitie (optioneel)</label>
             <input
@@ -302,6 +374,27 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function MilonField({ label, name, value, onChange, placeholder, hint, step = '1', unit }) {
+  return (
+    <div>
+      <label className="text-xs text-slate-500 font-medium">{label}</label>
+      {hint && <p className="text-xs text-slate-300 leading-none mb-1">{hint}</p>}
+      <div className="flex items-center gap-1 mt-1">
+        <input
+          type="number"
+          name={name}
+          value={value}
+          onChange={onChange}
+          step={step}
+          placeholder={placeholder}
+          className="input flex-1"
+        />
+        {unit && <span className="text-xs text-slate-400 flex-shrink-0">{unit}</span>}
+      </div>
     </div>
   )
 }
