@@ -1,26 +1,77 @@
-import { useState, useEffect } from 'react'
-import { getEntries, getSettings } from './lib/storage'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from './lib/supabase'
+import { fetchAllData, fetchSettings } from './lib/db'
+import { migrateLocalStorageToSupabase } from './lib/storage'
 import Dashboard from './pages/Dashboard'
 import LogEntry from './pages/LogEntry'
 import Settings from './pages/Settings'
 import AppLogo from './components/AppLogo'
+import AuthGate from './components/AuthGate'
 
 export default function App() {
   const [tab, setTab] = useState('dashboard')
+  const [session, setSession] = useState(undefined) // undefined = resolving
   const [entries, setEntries] = useState([])
+  const [workouts, setWorkouts] = useState([])
   const [settings, setSettings] = useState(null)
+  const [dataLoading, setDataLoading] = useState(false)
   const [logDate, setLogDate] = useState(new Date().toISOString().slice(0, 10))
 
+  // Auth listener
   useEffect(() => {
-    setEntries(getEntries())
-    setSettings(getSettings())
+    supabase.auth.getSession().then(({ data: { session: s } }) => setSession(s ?? null))
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s ?? null)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
+
+  const loadData = useCallback(async (userId) => {
+    setDataLoading(true)
+    try {
+      const migrated = await migrateLocalStorageToSupabase(userId, supabase)
+      if (migrated) console.info('localStorage data migrated to Supabase')
+
+      const [s, d] = await Promise.all([
+        fetchSettings(userId),
+        fetchAllData(userId),
+      ])
+      setSettings(s)
+      setEntries(d.entries)
+      setWorkouts(d.workouts)
+    } catch (err) {
+      console.error('loadData error:', err)
+    } finally {
+      setDataLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (session === undefined || session === null) return
+    loadData(session.user.id)
+  }, [session, loadData])
 
   function handleSelectDate(date) {
     setLogDate(date)
     setTab('log')
   }
 
+  async function handleRefresh() {
+    if (session) await loadData(session.user.id)
+  }
+
+  // ── Loading / auth gates ──────────────────────────────────────────────────
+  if (session === undefined || (session && dataLoading && !settings)) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!session) return <AuthGate />
   if (!settings) return null
 
   return (
@@ -37,6 +88,7 @@ export default function App() {
         {tab === 'dashboard' && (
           <Dashboard
             entries={entries}
+            workouts={workouts}
             settings={settings}
             onSelectDate={handleSelectDate}
           />
@@ -44,13 +96,20 @@ export default function App() {
         {tab === 'log' && (
           <LogEntry
             entries={entries}
+            workouts={workouts}
             settings={settings}
-            onEntriesChange={setEntries}
             initialDate={logDate}
+            userId={session.user.id}
+            onRefresh={handleRefresh}
           />
         )}
         {tab === 'settings' && (
-          <Settings settings={settings} onSettingsChange={setSettings} />
+          <Settings
+            settings={settings}
+            userId={session.user.id}
+            onSettingsChange={setSettings}
+            supabaseUrl={import.meta.env.VITE_SUPABASE_URL ?? ''}
+          />
         )}
       </main>
 

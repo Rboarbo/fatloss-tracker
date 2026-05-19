@@ -1,5 +1,5 @@
 import {
-  AreaChart, Area, BarChart, Bar,
+  AreaChart, Area, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from 'recharts'
@@ -8,7 +8,7 @@ import SportStats from '../components/SportStats'
 import MilonChart from '../components/MilonChart'
 import { SPORT_CONFIG } from '../lib/sport-config'
 
-export default function Dashboard({ entries, settings, onSelectDate }) {
+export default function Dashboard({ entries, workouts, settings, onSelectDate }) {
   if (entries.length === 0) {
     return (
       <>
@@ -39,12 +39,22 @@ export default function Dashboard({ entries, settings, onSelectDate }) {
   const hasCalories = entries.some((e) => e.calories)
   const hasWaist = entries.some((e) => e.waist)
   const hasWorkout = entries.some((e) => e.trainingDuration)
+  const hasBodyFat = entries.some((e) => e.bodyFatPct != null)
+  const hasLeanMass = entries.some((e) => e.leanMassKg != null)
+
+  // Latest Apple Health metrics
+  const latestWithBodyFat = [...entries].reverse().find((e) => e.bodyFatPct != null)
+  const latestWithLean = [...entries].reverse().find((e) => e.leanMassKg != null)
+  const latestWithVO2 = [...entries].reverse().find((e) => e.vo2Max != null)
+  const latestWithHR = [...entries].reverse().find((e) => e.restingHR != null)
 
   const chartData = entries.map((e) => ({
     date: shortDate(e.date),
     weight: e.weight ?? null,
     calories: e.calories ?? null,
     waist: e.waist ?? null,
+    bodyFat: e.bodyFatPct ?? null,
+    leanMass: e.leanMassKg ?? null,
   }))
 
   // Workout volume per week (last 8 weeks), stacked per sport
@@ -121,6 +131,48 @@ export default function Dashboard({ entries, settings, onSelectDate }) {
         />
       </div>
 
+      {/* Apple Health body composition stats */}
+      {(hasBodyFat || hasLeanMass || latestWithVO2 || latestWithHR) && (
+        <div className="grid grid-cols-2 gap-3">
+          {latestWithBodyFat && (
+            <BodyStatCard
+              label="Vetpercentage"
+              value={latestWithBodyFat.bodyFatPct.toFixed(1)}
+              unit="%"
+              sub="Apple Health"
+              color="#f97316"
+            />
+          )}
+          {latestWithLean && (
+            <BodyStatCard
+              label="Vetvrije massa"
+              value={latestWithLean.leanMassKg.toFixed(1)}
+              unit="kg"
+              sub="behoud spier"
+              color="#10b981"
+            />
+          )}
+          {latestWithVO2 && (
+            <BodyStatCard
+              label="VO₂ max"
+              value={latestWithVO2.vo2Max.toFixed(1)}
+              unit="ml/kg·min"
+              sub="conditie"
+              color="#60a5fa"
+            />
+          )}
+          {latestWithHR && (
+            <BodyStatCard
+              label="Rust-hartslag"
+              value={latestWithHR.restingHR}
+              unit="bpm"
+              sub="gemiddeld"
+              color="#a78bfa"
+            />
+          )}
+        </div>
+      )}
+
       {/* Weight area chart */}
       {weightEntries.length > 0 && (
         <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -150,6 +202,46 @@ export default function Dashboard({ entries, settings, onSelectDate }) {
                 dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }}
                 activeDot={{ r: 5, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }} />
             </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Body fat % trend */}
+      {hasBodyFat && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-700 mb-1">Vetpercentage</h2>
+          <p className="text-xs text-slate-400 mb-4">% lichaamsvet — Apple Health</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <LineChart data={chartData.filter((d) => d.bodyFat)} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${Number(v).toFixed(1)}%`, 'Vetpercentage']} />
+              <Line type="monotone" dataKey="bodyFat" stroke="#f97316" strokeWidth={2}
+                dot={{ r: 3, fill: '#f97316', strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }}
+                connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Lean mass trend */}
+      {hasLeanMass && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-700 mb-1">Vetvrije massa</h2>
+          <p className="text-xs text-slate-400 mb-4">kg spiermassa — Apple Health</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <LineChart data={chartData.filter((d) => d.leanMass)} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${Number(v).toFixed(1)} kg`, 'Vetvrije massa']} />
+              <Line type="monotone" dataKey="leanMass" stroke="#10b981" strokeWidth={2}
+                dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
+                connectNulls />
+            </LineChart>
           </ResponsiveContainer>
         </div>
       )}
@@ -249,6 +341,7 @@ export default function Dashboard({ entries, settings, onSelectDate }) {
                     className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
                     style={{ backgroundColor: `${cfg.color}18`, color: cfg.color }}
                   >
+                    {e._fromAppleHealth && <span title="Apple Health">🍎</span>}
                     {cfg.label}
                   </span>
                   {e.calories && (
@@ -262,6 +355,19 @@ export default function Dashboard({ entries, settings, onSelectDate }) {
           })}
         </ul>
       </div>
+    </div>
+  )
+}
+
+function BodyStatCard({ label, value, unit, sub, color }) {
+  return (
+    <div className="bg-white rounded-xl p-3 shadow-sm border-l-4" style={{ borderColor: color }}>
+      <p className="text-xs text-slate-500 leading-tight">{label}</p>
+      <p className="text-xl font-bold mt-1 leading-none" style={{ color }}>
+        {value}
+        <span className="text-xs font-normal text-slate-400 ml-1">{unit}</span>
+      </p>
+      <p className="text-xs text-slate-400 mt-0.5">{sub}</p>
     </div>
   )
 }

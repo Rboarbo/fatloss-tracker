@@ -3,8 +3,9 @@ import {
   Moon, Dumbbell, Target, Trophy, Bike,
   Footprints, Wind, MoreHorizontal, ChevronDown, ChevronUp,
 } from 'lucide-react'
-import { addEntry, deleteEntry } from '../lib/storage'
+import { saveManualEntry, saveManualWorkout, deleteManualData, confirmWorkoutSport, saveMilonDetails } from '../lib/db'
 import { SPORT_CONFIG, WORKOUT_FIELDS } from '../lib/sport-config'
+import MilonModal from '../components/MilonModal'
 
 const SPORT_ICONS = { Moon, Dumbbell, Target, Trophy, Bike, Footprints, Wind, MoreHorizontal }
 
@@ -14,38 +15,71 @@ function SportIcon({ type, size = 14 }) {
   return Icon ? <Icon size={size} /> : null
 }
 
-function entryToForm(e, date) {
+function blankForm(date) {
   return {
-    date: e?.date ?? date,
-    weight: e?.weight ?? '',
-    calories: e?.calories ?? '',
-    waist: e?.waist ?? '',
-    hips: e?.hips ?? '',
-    training: e?.training ?? 'rust',
-    duration: e?.trainingDuration ?? '',
-    trainingKcal: e?.trainingKcal ?? '',
-    avgHR: e?.avgHR ?? '',
-    distance: e?.distance ?? '',
-    notes: e?.notes ?? '',
-    milonKcalTotal: e?.milonKcalTotal ?? '',
-    milonKcalKracht: e?.milonKcalKracht ?? '',
-    milonKcalCardio: e?.milonKcalCardio ?? '',
-    milonKrachtScore: e?.milonKrachtScore ?? '',
-    milonCardioScore: e?.milonCardioScore ?? '',
-    milonTopPct: e?.milonTopPct ?? '',
-    milonTon: e?.milonTon ?? '',
-    milonReps: e?.milonReps ?? '',
+    date,
+    weight: '',
+    calories: '',
+    waist: '',
+    hips: '',
+    training: 'rust',
+    duration: '',
+    trainingKcal: '',
+    avgHR: '',
+    distance: '',
+    notes: '',
+    milonKcalTotal: '',
+    milonKcalKracht: '',
+    milonKcalCardio: '',
+    milonKrachtScore: '',
+    milonCardioScore: '',
+    milonTopPct: '',
+    milonTon: '',
+    milonReps: '',
   }
 }
 
-export default function LogEntry({ entries, settings, onEntriesChange, initialDate }) {
+function entryToForm(e, date) {
+  if (!e) return blankForm(date)
+  return {
+    date: e.date ?? date,
+    weight: e.weight ?? '',
+    calories: e.calories ?? '',
+    waist: e.waist ?? '',
+    hips: e.hips ?? '',
+    training: e.training ?? 'rust',
+    duration: e.trainingDuration ?? '',
+    trainingKcal: e.trainingKcal ?? '',
+    avgHR: e.avgHR ?? '',
+    distance: e.distance ?? '',
+    notes: e.notes ?? '',
+    milonKcalTotal: e.milonKcalTotal ?? '',
+    milonKcalKracht: e.milonKcalKracht ?? '',
+    milonKcalCardio: e.milonKcalCardio ?? '',
+    milonKrachtScore: e.milonKrachtScore ?? '',
+    milonCardioScore: e.milonCardioScore ?? '',
+    milonTopPct: e.milonTopPct ?? '',
+    milonTon: e.milonTon ?? '',
+    milonReps: e.milonReps ?? '',
+  }
+}
+
+export default function LogEntry({ entries, workouts, settings, initialDate, userId, onRefresh }) {
   const today = new Date().toISOString().slice(0, 10)
   const startDate = initialDate ?? today
 
   const existing = entries.find((e) => e.date === startDate)
   const [form, setForm] = useState(() => entryToForm(existing, startDate))
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [milonOpen, setMilonOpen] = useState(true)
+  const [milonModal, setMilonModal] = useState(null) // { workout, details }
+  const [confirmingWorkout, setConfirmingWorkout] = useState(null) // workoutId being confirmed
+
+  // Find workout for selected date
+  const dayWorkouts = workouts.filter((w) => w.start.startsWith(startDate))
+  const autoWorkout = dayWorkouts.find((w) => w.apple_type !== 'manual')
+  const hasAutoWorkout = !!autoWorkout
 
   useEffect(() => {
     const e = entries.find((en) => en.date === startDate)
@@ -58,48 +92,73 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
+    setSaving(true)
+    setSaved(false)
 
-    // Auto-fill milonKcalTotal if kracht + cardio filled but total is empty
-    const kcalKracht = form.milonKcalKracht ? parseInt(form.milonKcalKracht, 10) : null
-    const kcalCardio = form.milonKcalCardio ? parseInt(form.milonKcalCardio, 10) : null
-    const kcalTotal = form.milonKcalTotal
-      ? parseInt(form.milonKcalTotal, 10)
-      : kcalKracht && kcalCardio ? kcalKracht + kcalCardio : null
+    const weightVal = form.weight !== '' ? parseFloat(form.weight) : null
+    const caloriesVal = form.calories !== '' ? parseInt(form.calories, 10) : null
+    const waistVal = form.waist !== '' ? parseFloat(form.waist) : null
+    const hipsVal = form.hips !== '' ? parseFloat(form.hips) : null
+    const notesVal = form.notes || null
 
-    const entry = {
-      date: form.date,
-      weight: form.weight !== '' ? parseFloat(form.weight) : null,
-      training: form.training,
-      ...(form.calories ? { calories: parseInt(form.calories, 10) } : {}),
-      ...(form.waist ? { waist: parseFloat(form.waist) } : {}),
-      ...(form.hips ? { hips: parseFloat(form.hips) } : {}),
-      ...(form.duration ? { trainingDuration: parseInt(form.duration, 10) } : {}),
-      ...(form.trainingKcal ? { trainingKcal: parseInt(form.trainingKcal, 10) } : {}),
-      ...(form.avgHR ? { avgHR: parseInt(form.avgHR, 10) } : {}),
-      ...(form.distance ? { distance: parseFloat(form.distance) } : {}),
-      ...(form.notes ? { notes: form.notes } : {}),
-      // Milon-specific
-      ...(form.training === 'milon' ? {
-        ...(kcalTotal ? { milonKcalTotal: kcalTotal } : {}),
-        ...(kcalKracht ? { milonKcalKracht: kcalKracht } : {}),
-        ...(kcalCardio ? { milonKcalCardio: kcalCardio } : {}),
-        ...(form.milonKrachtScore ? { milonKrachtScore: parseInt(form.milonKrachtScore, 10) } : {}),
-        ...(form.milonCardioScore ? { milonCardioScore: parseInt(form.milonCardioScore, 10) } : {}),
-        ...(form.milonTopPct ? { milonTopPct: form.milonTopPct } : {}),
-        ...(form.milonTon ? { milonTon: parseFloat(form.milonTon) } : {}),
-        ...(form.milonReps ? { milonReps: parseInt(form.milonReps, 10) } : {}),
-      } : {}),
+    // Always save manual measurements
+    await saveManualEntry(userId, form.date, {
+      weightKg: weightVal,
+      waistCm: waistVal,
+      hipsCm: hipsVal,
+      foodKcal: caloriesVal,
+      notes: notesVal,
+    })
+
+    // Only create/update manual workout if no auto-imported workout exists
+    if (!hasAutoWorkout) {
+      // Milon auto-fill
+      const kcalKracht = form.milonKcalKracht ? parseInt(form.milonKcalKracht, 10) : null
+      const kcalCardio = form.milonKcalCardio ? parseInt(form.milonKcalCardio, 10) : null
+      const kcalTotal = form.milonKcalTotal
+        ? parseInt(form.milonKcalTotal, 10)
+        : kcalKracht && kcalCardio ? kcalKracht + kcalCardio : null
+
+      const workoutId = await saveManualWorkout(userId, form.date, {
+        training: form.training,
+        duration: form.duration ? parseInt(form.duration, 10) : null,
+        trainingKcal: kcalTotal ?? (form.trainingKcal ? parseInt(form.trainingKcal, 10) : null),
+        avgHR: form.avgHR ? parseInt(form.avgHR, 10) : null,
+        distance: form.distance ? parseFloat(form.distance) : null,
+      })
+
+      // Save Milon details inline (manual sessions)
+      if (form.training === 'milon' && workoutId && (kcalKracht || form.milonKrachtScore || form.milonTon)) {
+        await saveMilonDetails(workoutId, userId, {
+          kcal_kracht: kcalKracht,
+          kcal_cardio: kcalCardio,
+          kracht_score: form.milonKrachtScore ? parseInt(form.milonKrachtScore, 10) : null,
+          cardio_score: form.milonCardioScore ? parseInt(form.milonCardioScore, 10) : null,
+          top_pct: form.milonTopPct || null,
+          ton: form.milonTon ? parseFloat(form.milonTon) : null,
+          reps: form.milonReps ? parseInt(form.milonReps, 10) : null,
+        })
+      }
     }
 
-    onEntriesChange(addEntry(entry))
+    await onRefresh()
+    setSaving(false)
     setSaved(true)
   }
 
-  function handleDelete(date) {
+  async function handleDelete(date) {
     if (!confirm(`Meting van ${date} verwijderen?`)) return
-    onEntriesChange(deleteEntry(date))
+    await deleteManualData(userId, date)
+    await onRefresh()
+  }
+
+  async function handleConfirmSport(workoutId, sport) {
+    setConfirmingWorkout(workoutId)
+    await confirmWorkoutSport(workoutId, sport)
+    await onRefresh()
+    setConfirmingWorkout(null)
   }
 
   const isMilon = form.training === 'milon'
@@ -131,10 +190,13 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
 
         <hr className="border-slate-100" />
 
-        {/* Weight */}
+        {/* Weight (fallback when HAE scale data not synced) */}
         <div>
           <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
             Gewicht ({settings.unit})
+            {existing?.weight != null && existing?._fromAppleHealth === false && (
+              <span className="ml-2 text-slate-300 font-normal normal-case">handmatig</span>
+            )}
           </label>
           <div className="flex items-end gap-2 mt-2">
             <input
@@ -143,150 +205,170 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
               value={form.weight}
               onChange={handleChange}
               step="0.1"
-              placeholder="0.0"
+              placeholder={existing?._fromAppleHealth ? `${existing.weight} (AH)` : '0.0'}
               className="text-4xl font-bold text-slate-800 w-32 bg-transparent focus:outline-none placeholder:text-slate-200"
             />
             <span className="text-lg text-slate-400 mb-1">{settings.unit}</span>
           </div>
+          {existing?.weight != null && (
+            <p className="text-xs text-slate-400 mt-1">
+              {existing._fromAppleHealth
+                ? `🍎 ${existing.weight} ${settings.unit} via Apple Health`
+                : `Opgeslagen: ${existing.weight} ${settings.unit}`}
+            </p>
+          )}
         </div>
 
         <hr className="border-slate-100" />
 
-        {/* Training type */}
-        <div>
-          <label className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2 block">
-            Training
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {Object.entries(SPORT_CONFIG).map(([key, cfg]) => {
-              const Icon = SPORT_ICONS[cfg.icon]
-              const active = form.training === key
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => { setSaved(false); setForm((f) => ({ ...f, training: key })) }}
-                  className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl border-2 transition-all text-xs font-medium"
-                  style={{
-                    borderColor: active ? cfg.color : 'transparent',
-                    backgroundColor: active ? `${cfg.color}18` : '#f8fafc',
-                    color: active ? cfg.color : '#94a3b8',
-                  }}
-                >
-                  {Icon && <Icon size={18} />}
-                  <span className="leading-tight text-center">{cfg.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Milon ME sectie */}
-        {isMilon && (
-          <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: '#FF6B1A30' }}>
-            <button
-              type="button"
-              onClick={() => setMilonOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-4 py-3 text-left"
-              style={{ backgroundColor: '#FF6B1A10' }}
-            >
-              <div className="flex items-center gap-2">
-                <Dumbbell size={14} style={{ color: '#FF6B1A' }} />
-                <span className="text-sm font-semibold" style={{ color: '#FF6B1A' }}>Milon ME data</span>
+        {/* Auto-imported workout card */}
+        {hasAutoWorkout ? (
+          <AutoWorkoutCard
+            workout={autoWorkout}
+            entry={existing}
+            onConfirmSport={handleConfirmSport}
+            onOpenMilonModal={() => setMilonModal({ workout: autoWorkout, details: autoWorkout.milon_details?.[0] ?? null })}
+            confirming={confirmingWorkout === autoWorkout.id}
+          />
+        ) : (
+          <>
+            {/* Training type selector */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2 block">
+                Training
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {Object.entries(SPORT_CONFIG).map(([key, cfg]) => {
+                  const Icon = SPORT_ICONS[cfg.icon]
+                  const active = form.training === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => { setSaved(false); setForm((f) => ({ ...f, training: key })) }}
+                      className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl border-2 transition-all text-xs font-medium"
+                      style={{
+                        borderColor: active ? cfg.color : 'transparent',
+                        backgroundColor: active ? `${cfg.color}18` : '#f8fafc',
+                        color: active ? cfg.color : '#94a3b8',
+                      }}
+                    >
+                      {Icon && <Icon size={18} />}
+                      <span className="leading-tight text-center">{cfg.label}</span>
+                    </button>
+                  )
+                })}
               </div>
-              {milonOpen
-                ? <ChevronUp size={14} style={{ color: '#FF6B1A' }} />
-                : <ChevronDown size={14} style={{ color: '#FF6B1A' }} />
-              }
-            </button>
+            </div>
 
-            {milonOpen && (
-              <div className="p-4 space-y-3 bg-white">
+            {/* Milon ME sectie (manual session) */}
+            {isMilon && (
+              <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: '#FF6B1A30' }}>
+                <button
+                  type="button"
+                  onClick={() => setMilonOpen((o) => !o)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-left"
+                  style={{ backgroundColor: '#FF6B1A10' }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Dumbbell size={14} style={{ color: '#FF6B1A' }} />
+                    <span className="text-sm font-semibold" style={{ color: '#FF6B1A' }}>Milon ME data</span>
+                  </div>
+                  {milonOpen
+                    ? <ChevronUp size={14} style={{ color: '#FF6B1A' }} />
+                    : <ChevronDown size={14} style={{ color: '#FF6B1A' }} />
+                  }
+                </button>
+
+                {milonOpen && (
+                  <div className="p-4 space-y-3 bg-white">
+                    <div className="grid grid-cols-2 gap-3">
+                      <MilonField label="Totaal kcal" name="milonKcalTotal" value={form.milonKcalTotal} onChange={handleChange} placeholder="344" hint="KCAL onderaan" />
+                      <MilonField label="Kcal kracht" name="milonKcalKracht" value={form.milonKcalKracht} onChange={handleChange} placeholder="30" hint="stacked bar donker" />
+                      <MilonField label="Kcal cardio" name="milonKcalCardio" value={form.milonKcalCardio} onChange={handleChange} placeholder="170" hint="stacked bar licht" />
+                      <MilonField label="Kracht-score" name="milonKrachtScore" value={form.milonKrachtScore} onChange={handleChange} placeholder="70" hint="# KRACHT (↓ beter)" />
+                      <MilonField label="Cardio-score" name="milonCardioScore" value={form.milonCardioScore} onChange={handleChange} placeholder="49" hint="# CARDIO (↓ beter)" />
+                      <div>
+                        <label className="text-xs text-slate-400">Top % zone</label>
+                        <p className="text-xs text-slate-300 mb-1">TOP %-zone</p>
+                        <input
+                          type="text"
+                          name="milonTopPct"
+                          value={form.milonTopPct}
+                          onChange={handleChange}
+                          placeholder="50-60"
+                          className="input"
+                        />
+                      </div>
+                      <MilonField label="Ton" name="milonTon" value={form.milonTon} onChange={handleChange} placeholder="10" hint="TON" step="0.1" />
+                      <MilonField label="Herhalingen" name="milonReps" value={form.milonReps} onChange={handleChange} placeholder="251" hint="HERHALINGEN" />
+                      <MilonField label="Duur" name="duration" value={form.duration} onChange={handleChange} placeholder="35" hint="minuten" unit="min" />
+                      <div className="col-span-2">
+                        <label className="text-xs text-slate-400">Notitie</label>
+                        <textarea
+                          name="notes"
+                          value={form.notes}
+                          onChange={handleChange}
+                          placeholder="Opmerkingen over de sessie..."
+                          rows={2}
+                          className="input mt-1 resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Generic workout details */}
+            {showGenericWorkout && (
+              <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Workout details</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <MilonField label="Totaal kcal" name="milonKcalTotal" value={form.milonKcalTotal} onChange={handleChange} placeholder="344" hint="KCAL onderaan" />
-                  <MilonField label="Kcal kracht" name="milonKcalKracht" value={form.milonKcalKracht} onChange={handleChange} placeholder="30" hint="stacked bar donker" />
-                  <MilonField label="Kcal cardio" name="milonKcalCardio" value={form.milonKcalCardio} onChange={handleChange} placeholder="170" hint="stacked bar licht" />
-                  <MilonField label="Kracht-score" name="milonKrachtScore" value={form.milonKrachtScore} onChange={handleChange} placeholder="70" hint="# KRACHT (↓ beter)" />
-                  <MilonField label="Cardio-score" name="milonCardioScore" value={form.milonCardioScore} onChange={handleChange} placeholder="49" hint="# CARDIO (↓ beter)" />
-                  <div>
-                    <label className="text-xs text-slate-400">Top % zone</label>
-                    <p className="text-xs text-slate-300 mb-1">TOP %-zone</p>
-                    <input
-                      type="text"
-                      name="milonTopPct"
-                      value={form.milonTopPct}
-                      onChange={handleChange}
-                      placeholder="50-60"
-                      className="input"
-                    />
-                  </div>
-                  <MilonField label="Ton" name="milonTon" value={form.milonTon} onChange={handleChange} placeholder="10" hint="TON" step="0.1" />
-                  <MilonField label="Herhalingen" name="milonReps" value={form.milonReps} onChange={handleChange} placeholder="251" hint="HERHALINGEN" />
-                  <MilonField label="Duur" name="duration" value={form.duration} onChange={handleChange} placeholder="35" hint="minuten" unit="min" />
-                  <div className="col-span-2">
-                    <label className="text-xs text-slate-400">Notitie</label>
-                    <textarea
-                      name="notes"
-                      value={form.notes}
-                      onChange={handleChange}
-                      placeholder="Opmerkingen over de sessie..."
-                      rows={2}
-                      className="input mt-1 resize-none"
-                    />
-                  </div>
+                  {visibleFields.includes('duration') && (
+                    <WorkoutField label="Duur" name="duration" value={form.duration} onChange={handleChange} unit="min" placeholder="45" />
+                  )}
+                  {visibleFields.includes('trainingKcal') && (
+                    <WorkoutField label="Workout kcal" name="trainingKcal" value={form.trainingKcal} onChange={handleChange} unit="kcal" placeholder="300" />
+                  )}
+                  {visibleFields.includes('avgHR') && (
+                    <WorkoutField label="Gem. HR" name="avgHR" value={form.avgHR} onChange={handleChange} unit="bpm" placeholder="145" />
+                  )}
+                  {visibleFields.includes('distance') && (
+                    <WorkoutField label="Afstand" name="distance" value={form.distance} onChange={handleChange} unit="km" placeholder="25" step="0.1" />
+                  )}
+                  {visibleFields.includes('notes') && (
+                    <div className="col-span-2">
+                      <label className="text-xs text-slate-400">Notitie</label>
+                      <input
+                        type="text"
+                        name="notes"
+                        value={form.notes}
+                        onChange={handleChange}
+                        placeholder="bijv. goed gevoel, hoge intensiteit..."
+                        className="input mt-1"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
-          </div>
-        )}
 
-        {/* Generic workout details (non-milon sports) */}
-        {showGenericWorkout && (
-          <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Workout details</p>
-            <div className="grid grid-cols-2 gap-3">
-              {visibleFields.includes('duration') && (
-                <WorkoutField label="Duur" name="duration" value={form.duration} onChange={handleChange} unit="min" placeholder="45" />
-              )}
-              {visibleFields.includes('trainingKcal') && (
-                <WorkoutField label="Workout kcal" name="trainingKcal" value={form.trainingKcal} onChange={handleChange} unit="kcal" placeholder="300" />
-              )}
-              {visibleFields.includes('avgHR') && (
-                <WorkoutField label="Gem. HR" name="avgHR" value={form.avgHR} onChange={handleChange} unit="bpm" placeholder="145" />
-              )}
-              {visibleFields.includes('distance') && (
-                <WorkoutField label="Afstand" name="distance" value={form.distance} onChange={handleChange} unit="km" placeholder="25" step="0.1" />
-              )}
-              {visibleFields.includes('notes') && (
-                <div className="col-span-2">
-                  <label className="text-xs text-slate-400">Notitie</label>
-                  <input
-                    type="text"
-                    name="notes"
-                    value={form.notes}
-                    onChange={handleChange}
-                    placeholder="bijv. goed gevoel, hoge intensiteit..."
-                    className="input mt-1"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Rust/Anders: only notes */}
-        {!showGenericWorkout && !isMilon && (
-          <div>
-            <label className="text-xs text-slate-400">Notitie (optioneel)</label>
-            <input
-              type="text"
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              placeholder="bijv. cheat day, ziek..."
-              className="input mt-1"
-            />
-          </div>
+            {/* Rust/Anders: only notes */}
+            {!showGenericWorkout && !isMilon && (
+              <div>
+                <label className="text-xs text-slate-400">Notitie (optioneel)</label>
+                <input
+                  type="text"
+                  name="notes"
+                  value={form.notes}
+                  onChange={handleChange}
+                  placeholder="bijv. cheat day, ziek..."
+                  className="input mt-1"
+                />
+              </div>
+            )}
+          </>
         )}
 
         <hr className="border-slate-100" />
@@ -303,9 +385,10 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
 
         <button
           type="submit"
-          className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 rounded-xl text-sm font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all shadow-sm shadow-emerald-200"
+          disabled={saving}
+          className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 rounded-xl text-sm font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all shadow-sm shadow-emerald-200 disabled:opacity-60"
         >
-          Opslaan
+          {saving ? 'Opslaan…' : 'Opslaan'}
         </button>
 
         {saved && (
@@ -333,6 +416,9 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
                 {[...entries].reverse().map((e) => {
                   const sport = e.training ?? 'rust'
                   const cfg = SPORT_CONFIG[sport]
+                  const isLowConf = e._sportConfidence === 'low'
+                  const dayRawWorkout = workouts.find((w) => w.id === e._workoutId)
+                  const hasMilonDetails = e.milonKrachtScore != null || e.milonTon != null
                   return (
                     <tr key={e.date} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-2.5 text-slate-500 text-xs whitespace-nowrap">{e.date}</td>
@@ -340,13 +426,36 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
                         {e.weight != null ? `${e.weight} ${settings.unit}` : '—'}
                       </td>
                       <td className="px-4 py-2.5">
-                        <span
-                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
-                          style={{ backgroundColor: `${cfg.color}18`, color: cfg.color }}
-                        >
-                          <SportIcon type={sport} size={11} />
-                          {cfg.label}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
+                            style={{ backgroundColor: `${cfg.color}18`, color: cfg.color }}
+                          >
+                            <SportIcon type={sport} size={11} />
+                            {e._fromAppleHealth && <span title="Apple Health">🍎</span>}
+                            {cfg.label}
+                          </span>
+                          {/* Low confidence → confirm dropdown */}
+                          {isLowConf && dayRawWorkout && (
+                            <SportConfirmSelect
+                              currentSport={sport}
+                              workoutId={e._workoutId}
+                              onConfirm={handleConfirmSport}
+                              loading={confirmingWorkout === e._workoutId}
+                            />
+                          )}
+                          {/* Milon details button for auto-imported */}
+                          {e._fromAppleHealth && sport === 'milon' && (
+                            <button
+                              type="button"
+                              onClick={() => setMilonModal({ workout: dayRawWorkout, details: dayRawWorkout?.milon_details?.[0] ?? null })}
+                              className="text-xs font-medium mt-0.5 text-left"
+                              style={{ color: '#FF6B1A' }}
+                            >
+                              {hasMilonDetails ? '✏ ME details' : '✚ ME details'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-2.5 text-slate-500 text-xs whitespace-nowrap">
                         {e.trainingDuration ? `${e.trainingDuration} min` : '—'}
@@ -355,16 +464,18 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
                         {e.avgHR ? `${e.avgHR} bpm` : '—'}
                       </td>
                       <td className="px-4 py-2.5">
-                        <button
-                          onClick={() => handleDelete(e.date)}
-                          className="text-slate-300 hover:text-red-400 transition-colors p-1"
-                          aria-label="Verwijderen"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
-                        </button>
+                        {!e._fromAppleHealth && (
+                          <button
+                            onClick={() => handleDelete(e.date)}
+                            className="text-slate-300 hover:text-red-400 transition-colors p-1"
+                            aria-label="Verwijderen"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )
@@ -374,6 +485,122 @@ export default function LogEntry({ entries, settings, onEntriesChange, initialDa
           </div>
         </div>
       )}
+
+      {/* Milon details modal */}
+      {milonModal && (
+        <MilonModal
+          workout={milonModal.workout}
+          existingDetails={milonModal.details}
+          userId={userId}
+          onClose={() => setMilonModal(null)}
+          onSave={async () => {
+            setMilonModal(null)
+            await onRefresh()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// Auto-imported workout card shown at the top of the form
+function AutoWorkoutCard({ workout, entry, onConfirmSport, onOpenMilonModal, confirming }) {
+  const sport = workout.sport
+  const cfg = SPORT_CONFIG[sport] ?? SPORT_CONFIG.anders
+  const durationMin = Math.round(workout.duration_sec / 60)
+  const isLowConf = workout.sport_confidence === 'low'
+  const hasMilonDetails = entry?.milonKrachtScore != null || entry?.milonTon != null
+
+  return (
+    <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: `${cfg.color}30` }}>
+      <div
+        className="px-4 py-3 flex items-start justify-between"
+        style={{ backgroundColor: `${cfg.color}10` }}
+      >
+        <div className="flex items-center gap-2">
+          <SportIcon type={sport} size={16} />
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-semibold" style={{ color: cfg.color }}>
+                {cfg.label}
+              </span>
+              <span className="text-xs bg-white/60 px-1.5 py-0.5 rounded-full text-slate-500">🍎 Apple Health</span>
+              {isLowConf && (
+                <span className="text-xs bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full">🟡 bevestig sport</span>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {workout.apple_type} · {durationMin} min
+              {workout.kcal ? ` · ${Math.round(workout.kcal)} kcal` : ''}
+              {workout.avg_hr ? ` · HR ${Math.round(workout.avg_hr)} bpm` : ''}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-3 bg-white space-y-2">
+        {isLowConf && (
+          <SportConfirmSelect
+            currentSport={sport}
+            workoutId={workout.id}
+            onConfirm={onConfirmSport}
+            loading={confirming}
+          />
+        )}
+
+        {sport === 'milon' && (
+          <button
+            type="button"
+            onClick={onOpenMilonModal}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            style={{ color: '#FF6B1A', backgroundColor: '#FF6B1A10' }}
+          >
+            {hasMilonDetails ? '✏ Milon ME details bewerken' : '✚ Milon ME details toevoegen'}
+          </button>
+        )}
+
+        {hasMilonDetails && (
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {entry.milonKrachtScore && (
+              <div className="text-center">
+                <p className="text-xs text-slate-400">Kracht</p>
+                <p className="font-bold text-slate-700" style={{ color: '#FF6B1A' }}>{entry.milonKrachtScore}</p>
+              </div>
+            )}
+            {entry.milonCardioScore && (
+              <div className="text-center">
+                <p className="text-xs text-slate-400">Cardio</p>
+                <p className="font-bold text-slate-700" style={{ color: '#FF6B1A' }}>{entry.milonCardioScore}</p>
+              </div>
+            )}
+            {entry.milonTon && (
+              <div className="text-center">
+                <p className="text-xs text-slate-400">Ton</p>
+                <p className="font-bold text-slate-700">{entry.milonTon}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SportConfirmSelect({ currentSport, workoutId, onConfirm, loading }) {
+  return (
+    <div className="flex items-center gap-2">
+      <p className="text-xs text-amber-600 font-medium">Sport bevestigen:</p>
+      <select
+        defaultValue={currentSport}
+        disabled={loading}
+        onChange={(e) => e.target.value !== currentSport && onConfirm(workoutId, e.target.value)}
+        className="text-xs border border-amber-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
+      >
+        {Object.entries(SPORT_CONFIG).filter(([k]) => k !== 'rust').map(([key, cfg]) => (
+          <option key={key} value={key}>{cfg.label}</option>
+        ))}
+      </select>
+      {loading && <span className="text-xs text-slate-400">…</span>}
     </div>
   )
 }
