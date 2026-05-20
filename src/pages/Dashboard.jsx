@@ -173,6 +173,12 @@ export default function Dashboard({ entries, workouts, settings, onSelectDate })
         </div>
       )}
 
+      {/* Dagelijks bewegen */}
+      <DailyMovementCard entries={entries} />
+
+      {/* Cardioconditie trend */}
+      <CardioTrendCard entries={entries} />
+
       {/* Weight area chart */}
       {weightEntries.length > 0 && (
         <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -319,6 +325,9 @@ export default function Dashboard({ entries, workouts, settings, onSelectDate })
       {/* Sport statistics */}
       <SportStats entries={entries} />
 
+      {/* Week samenvatting */}
+      <WeekSummaryCard entries={entries} />
+
       {/* Milon progression chart */}
       <MilonChart entries={entries} />
 
@@ -337,13 +346,15 @@ export default function Dashboard({ entries, workouts, settings, onSelectDate })
                   {e.weight != null ? `${e.weight} ${settings.unit}` : '—'}
                 </span>
                 <div className="flex gap-1.5 flex-wrap justify-end">
-                  <span
-                    className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
-                    style={{ backgroundColor: `${cfg.color}18`, color: cfg.color }}
-                  >
-                    {e._fromAppleHealth && <span title="Apple Health">🍎</span>}
-                    {cfg.label}
-                  </span>
+                  {e.weight == null && (
+                    <span
+                      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
+                      style={{ backgroundColor: `${cfg.color}18`, color: cfg.color }}
+                    >
+                      {e._fromAppleHealth && <span title="Apple Health">🍎</span>}
+                      {cfg.label}
+                    </span>
+                  )}
                   {e.calories && (
                     <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">
                       {e.calories} kcal
@@ -424,4 +435,191 @@ function buildVolumeData(entries) {
     })
 
   return Object.values(weekMap).sort((a, b) => a.week.localeCompare(b.week))
+}
+
+const STEP_GOAL = 8000
+const DAY_NL = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za']
+
+function DailyMovementCard({ entries }) {
+  const today = new Date()
+  const todayISO = today.toISOString().slice(0, 10)
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - 6 + i)
+    return d.toISOString().slice(0, 10)
+  })
+  const entryByDate = Object.fromEntries(entries.map((e) => [e.date, e]))
+
+  if (!days.some((d) => entryByDate[d]?.stepCount != null)) return null
+
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-slate-700 mb-1">Dagelijks bewegen</h2>
+      <p className="text-xs text-slate-400 mb-3">Stappen, km en kcal — Apple Health</p>
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((date) => {
+          const e = entryByDate[date]
+          const steps = e?.stepCount ?? null
+          const km = e?.walkingDistanceKm ?? null
+          const kcal = e?.activeEnergyKcal ?? null
+          const isToday = date === todayISO
+          const dayLabel = DAY_NL[new Date(date + 'T12:00:00').getDay()]
+          let stepColor = '#cbd5e1'
+          let barPct = 0
+          if (steps != null) {
+            barPct = Math.min(100, (steps / STEP_GOAL) * 100)
+            stepColor = steps >= STEP_GOAL ? '#10b981' : steps >= 5000 ? '#f97316' : '#ef4444'
+          }
+          return (
+            <div
+              key={date}
+              className={`flex flex-col items-center gap-1 py-2 rounded-xl ${isToday ? 'bg-slate-50' : ''}`}
+            >
+              <span className={`text-xs font-medium ${isToday ? 'text-slate-600' : 'text-slate-400'}`}>
+                {dayLabel}
+              </span>
+              <div className="w-full px-1">
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${barPct}%`, backgroundColor: stepColor }} />
+                </div>
+              </div>
+              <span className="text-xs font-bold leading-none" style={{ color: steps != null ? stepColor : '#e2e8f0' }}>
+                {steps != null ? (steps >= 1000 ? `${(steps / 1000).toFixed(1)}k` : steps) : '–'}
+              </span>
+              {km != null && (
+                <span className="text-xs text-slate-400 leading-none">{km.toFixed(1)}km</span>
+              )}
+              {kcal != null && (
+                <span className="text-xs text-slate-300 leading-none">{Math.round(kcal)}</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <p className="text-center text-xs text-slate-300 mt-2">Doel: {STEP_GOAL.toLocaleString('nl-NL')} stappen/dag</p>
+    </div>
+  )
+}
+
+function CardioTrendCard({ entries }) {
+  const twoWeeksAgoISO = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 14)
+    return d.toISOString().slice(0, 10)
+  })()
+  const rev = [...entries].reverse()
+  const old = entries.filter((e) => e.date <= twoWeeksAgoISO).reverse()
+
+  const allMetrics = [
+    {
+      key: 'vo2Max', label: 'VO₂ max', unit: 'ml/kg·min', color: '#60a5fa', higherIsBetter: true,
+      data: entries.filter((e) => e.vo2Max != null).map((e) => ({ date: e.date, v: e.vo2Max })),
+      latest: rev.find((e) => e.vo2Max != null)?.vo2Max ?? null,
+      prev: old.find((e) => e.vo2Max != null)?.vo2Max ?? null,
+    },
+    {
+      key: 'restingHR', label: 'Rust-HR', unit: 'bpm', color: '#a78bfa', higherIsBetter: false,
+      data: entries.filter((e) => e.restingHR != null).map((e) => ({ date: e.date, v: e.restingHR })),
+      latest: rev.find((e) => e.restingHR != null)?.restingHR ?? null,
+      prev: old.find((e) => e.restingHR != null)?.restingHR ?? null,
+    },
+    {
+      key: 'hrv', label: 'HRV', unit: 'ms', color: '#34d399', higherIsBetter: true,
+      data: entries.filter((e) => e.hrv != null).map((e) => ({ date: e.date, v: e.hrv })),
+      latest: rev.find((e) => e.hrv != null)?.hrv ?? null,
+      prev: old.find((e) => e.hrv != null)?.hrv ?? null,
+    },
+    {
+      key: 'walkingHR', label: 'Loop-HR', unit: 'bpm', color: '#fb923c', higherIsBetter: false,
+      data: entries.filter((e) => e.walkingHR != null).map((e) => ({ date: e.date, v: e.walkingHR })),
+      latest: rev.find((e) => e.walkingHR != null)?.walkingHR ?? null,
+      prev: old.find((e) => e.walkingHR != null)?.walkingHR ?? null,
+    },
+  ].filter((m) => m.data.length > 0)
+
+  if (allMetrics.length === 0) return null
+
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-slate-700 mb-1">Cardioconditie</h2>
+      <p className="text-xs text-slate-400 mb-3">Trends — Apple Health</p>
+      <div className="grid grid-cols-2 gap-4">
+        {allMetrics.map((m) => {
+          const diff = m.latest != null && m.prev != null ? m.latest - m.prev : null
+          const improved = diff != null ? (m.higherIsBetter ? diff > 0 : diff < 0) : null
+          const arrow = diff == null ? null : diff > 0 ? '↑' : diff < 0 ? '↓' : '→'
+          const trendColor = improved == null ? '#94a3b8' : improved ? '#10b981' : '#f97316'
+          return (
+            <div key={m.key}>
+              <p className="text-xs font-medium text-slate-500 mb-0.5">{m.label}</p>
+              {m.latest != null && (
+                <div className="flex items-baseline gap-1 mb-1">
+                  <span className="text-lg font-bold leading-none" style={{ color: m.color }}>
+                    {Number(m.latest).toFixed(m.unit === 'ms' || m.unit === 'bpm' ? 0 : 1)}
+                  </span>
+                  <span className="text-xs text-slate-400">{m.unit}</span>
+                  {arrow && (
+                    <span className="text-xs font-semibold ml-0.5" style={{ color: trendColor }}>{arrow}</span>
+                  )}
+                </div>
+              )}
+              {m.data.length > 1 && (
+                <ResponsiveContainer width="100%" height={50}>
+                  <LineChart data={m.data} margin={{ top: 2, right: 2, left: 2, bottom: 0 }}>
+                    <YAxis domain={['auto', 'auto']} hide />
+                    <Line type="monotone" dataKey="v" stroke={m.color} strokeWidth={1.5} dot={false} connectNulls />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function WeekSummaryCard({ entries }) {
+  const today = new Date()
+  const dow = today.getDay() === 0 ? 7 : today.getDay()
+  const weekStartISO = (() => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - dow + 1)
+    return d.toISOString().slice(0, 10)
+  })()
+  const weekEndISO = today.toISOString().slice(0, 10)
+
+  const wkEntries = entries.filter((e) => e.date >= weekStartISO && e.date <= weekEndISO)
+  const totalSteps = wkEntries.reduce((s, e) => s + (e.stepCount ?? 0), 0)
+  const withHR = wkEntries.filter((e) => e.restingHR != null)
+  const avgHR = withHR.length > 0
+    ? Math.round(withHR.reduce((s, e) => s + e.restingHR, 0) / withHR.length)
+    : null
+  const activeDays = wkEntries.filter((e) => (e.stepCount ?? 0) >= 7500 || e.trainingDuration != null).length
+
+  if (totalSteps === 0 && avgHR == null) return null
+
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-slate-700 mb-3">Week samenvatting</h2>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div>
+          <p className="text-2xl font-bold text-emerald-600">
+            {totalSteps > 0 ? `${Math.round(totalSteps / 1000)}k` : '–'}
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">stappen deze week</p>
+        </div>
+        <div>
+          <p className="text-2xl font-bold text-violet-500">{avgHR ?? '–'}</p>
+          <p className="text-xs text-slate-400 mt-0.5">gem. rust-HR bpm</p>
+        </div>
+        <div>
+          <p className="text-2xl font-bold text-teal-600">
+            {activeDays}<span className="text-sm font-normal text-slate-400">/7</span>
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">actieve dagen</p>
+        </div>
+      </div>
+    </div>
+  )
 }

@@ -110,6 +110,15 @@ const METRIC_MAP: Record<string, string> = {
   blood_oxygen_saturation:    'blood_oxygen_pct',
 }
 
+const SUM_METRICS = new Set([
+  'step_count',
+  'walking_distance_km',
+  'flights_climbed',
+  'active_energy_kcal',
+  'exercise_minutes',
+  'time_in_daylight_min',
+])
+
 function mapMetrics(metrics: HAEMetric[], userId: string): Record<string, unknown>[] {
   const byDate: Record<string, Record<string, unknown>> = {}
 
@@ -125,7 +134,11 @@ function mapMetrics(metrics: HAEMetric[], userId: string): Record<string, unknow
       // active_energy_burned may come in kJ
       if (m.name === 'active_energy_burned' && m.units === 'kJ') val = val * KJ_TO_KCAL
 
-      byDate[date][col] = val
+      if (SUM_METRICS.has(col)) {
+        byDate[date][col] = ((byDate[date][col] as number) || 0) + val
+      } else {
+        byDate[date][col] = val
+      }
     }
   }
 

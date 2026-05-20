@@ -5,7 +5,6 @@ import {
 } from 'lucide-react'
 import { saveManualEntry, saveManualWorkout, deleteManualData, confirmWorkoutSport, saveMilonDetails } from '../lib/db'
 import { SPORT_CONFIG, WORKOUT_FIELDS } from '../lib/sport-config'
-import MilonModal from '../components/MilonModal'
 
 const SPORT_ICONS = { Moon, Dumbbell, Target, Trophy, Bike, Footprints, Wind, MoreHorizontal }
 
@@ -73,7 +72,6 @@ export default function LogEntry({ entries, workouts, settings, initialDate, use
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [milonOpen, setMilonOpen] = useState(true)
-  const [milonModal, setMilonModal] = useState(null) // { workout, details }
   const [confirmingWorkout, setConfirmingWorkout] = useState(null) // workoutId being confirmed
 
   // Find workout for selected date
@@ -225,9 +223,7 @@ export default function LogEntry({ entries, workouts, settings, initialDate, use
         {hasAutoWorkout ? (
           <AutoWorkoutCard
             workout={autoWorkout}
-            entry={existing}
             onConfirmSport={handleConfirmSport}
-            onOpenMilonModal={() => setMilonModal({ workout: autoWorkout, details: autoWorkout.milon_details?.[0] ?? null })}
             confirming={confirmingWorkout === autoWorkout.id}
           />
         ) : (
@@ -418,7 +414,6 @@ export default function LogEntry({ entries, workouts, settings, initialDate, use
                   const cfg = SPORT_CONFIG[sport]
                   const isLowConf = e._sportConfidence === 'low'
                   const dayRawWorkout = workouts.find((w) => w.id === e._workoutId)
-                  const hasMilonDetails = e.milonKrachtScore != null || e.milonTon != null
                   return (
                     <tr key={e.date} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-2.5 text-slate-500 text-xs whitespace-nowrap">{e.date}</td>
@@ -443,17 +438,6 @@ export default function LogEntry({ entries, workouts, settings, initialDate, use
                               onConfirm={handleConfirmSport}
                               loading={confirmingWorkout === e._workoutId}
                             />
-                          )}
-                          {/* Milon details button for auto-imported */}
-                          {e._fromAppleHealth && sport === 'milon' && (
-                            <button
-                              type="button"
-                              onClick={() => setMilonModal({ workout: dayRawWorkout, details: dayRawWorkout?.milon_details?.[0] ?? null })}
-                              className="text-xs font-medium mt-0.5 text-left"
-                              style={{ color: '#FF6B1A' }}
-                            >
-                              {hasMilonDetails ? '✏ ME details' : '✚ ME details'}
-                            </button>
                           )}
                         </div>
                       </td>
@@ -486,30 +470,16 @@ export default function LogEntry({ entries, workouts, settings, initialDate, use
         </div>
       )}
 
-      {/* Milon details modal */}
-      {milonModal && (
-        <MilonModal
-          workout={milonModal.workout}
-          existingDetails={milonModal.details}
-          userId={userId}
-          onClose={() => setMilonModal(null)}
-          onSave={async () => {
-            setMilonModal(null)
-            await onRefresh()
-          }}
-        />
-      )}
     </div>
   )
 }
 
 // Auto-imported workout card shown at the top of the form
-function AutoWorkoutCard({ workout, entry, onConfirmSport, onOpenMilonModal, confirming }) {
+function AutoWorkoutCard({ workout, onConfirmSport, confirming }) {
   const sport = workout.sport
   const cfg = SPORT_CONFIG[sport] ?? SPORT_CONFIG.anders
   const durationMin = Math.round(workout.duration_sec / 60)
   const isLowConf = workout.sport_confidence === 'low'
-  const hasMilonDetails = entry?.milonKrachtScore != null || entry?.milonTon != null
 
   return (
     <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: `${cfg.color}30` }}>
@@ -538,50 +508,16 @@ function AutoWorkoutCard({ workout, entry, onConfirmSport, onOpenMilonModal, con
         </div>
       </div>
 
-      <div className="px-4 py-3 bg-white space-y-2">
-        {isLowConf && (
+      {isLowConf && (
+        <div className="px-4 py-3 bg-white">
           <SportConfirmSelect
             currentSport={sport}
             workoutId={workout.id}
             onConfirm={onConfirmSport}
             loading={confirming}
           />
-        )}
-
-        {sport === 'milon' && (
-          <button
-            type="button"
-            onClick={onOpenMilonModal}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            style={{ color: '#FF6B1A', backgroundColor: '#FF6B1A10' }}
-          >
-            {hasMilonDetails ? '✏ Milon ME details bewerken' : '✚ Milon ME details toevoegen'}
-          </button>
-        )}
-
-        {hasMilonDetails && (
-          <div className="grid grid-cols-3 gap-2 pt-1">
-            {entry.milonKrachtScore && (
-              <div className="text-center">
-                <p className="text-xs text-slate-400">Kracht</p>
-                <p className="font-bold text-slate-700" style={{ color: '#FF6B1A' }}>{entry.milonKrachtScore}</p>
-              </div>
-            )}
-            {entry.milonCardioScore && (
-              <div className="text-center">
-                <p className="text-xs text-slate-400">Cardio</p>
-                <p className="font-bold text-slate-700" style={{ color: '#FF6B1A' }}>{entry.milonCardioScore}</p>
-              </div>
-            )}
-            {entry.milonTon && (
-              <div className="text-center">
-                <p className="text-xs text-slate-400">Ton</p>
-                <p className="font-bold text-slate-700">{entry.milonTon}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

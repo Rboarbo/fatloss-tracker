@@ -74,6 +74,8 @@ function mergeEntry(date, metric, workout, milonDetail, manual) {
     vo2Max: metric?.vo2_max ?? null,
     stepCount: metric?.step_count ?? null,
     activeEnergyKcal: metric?.active_energy_kcal ?? null,
+    walkingDistanceKm: metric?.walking_distance_km ?? null,
+    walkingHR: metric?.walking_hr_avg ?? null,
     // Milon ME details
     milonKcalKracht: milonDetail?.kcal_kracht ?? null,
     milonKcalCardio: milonDetail?.kcal_cardio ?? null,
