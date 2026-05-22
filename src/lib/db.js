@@ -52,10 +52,14 @@ export async function saveSettings(userId, data) {
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
 
+function round1(v) {
+  return v != null ? Math.round(v * 10) / 10 : null
+}
+
 function mergeEntry(date, metric, workout, milonDetail, manual) {
   return {
     date,
-    weight: metric?.weight_kg ?? manual?.weight_kg ?? null,
+    weight: round1(metric?.weight_kg ?? manual?.weight_kg),
     waist: manual?.waist_cm ?? null,
     hips: manual?.hips_cm ?? null,
     calories: manual?.food_kcal ?? null,
