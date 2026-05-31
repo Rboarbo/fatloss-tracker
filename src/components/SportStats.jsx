@@ -13,8 +13,14 @@ function SportIcon({ type, size = 16 }) {
 }
 
 export default function SportStats({ entries }) {
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - 28)
+  // Start of current ISO week (Monday), minus 4 weeks
+  const today = new Date()
+  const dow = today.getDay() === 0 ? 7 : today.getDay()
+  const thisMonday = new Date(today)
+  thisMonday.setDate(today.getDate() - dow + 1)
+  thisMonday.setHours(0, 0, 0, 0)
+  const cutoff = new Date(thisMonday)
+  cutoff.setDate(thisMonday.getDate() - 28)
   const cutoffISO = cutoff.toISOString().slice(0, 10)
 
   const recent = entries.filter((e) => e.date >= cutoffISO && e.training && e.training !== 'rust')

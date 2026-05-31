@@ -84,7 +84,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full">
+      <main className="flex-1 overflow-y-auto p-4 pb-24 max-w-2xl mx-auto w-full">
         {tab === 'dashboard' && (
           <Dashboard
             entries={entries}
@@ -113,7 +113,7 @@ export default function App() {
         )}
       </main>
 
-      <nav className="bg-white border-t border-slate-200 shadow-up">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-t border-slate-200 shadow-lg">
         <div className="flex max-w-2xl mx-auto">
           {[
             { id: 'dashboard', label: 'Dashboard', Icon: GridIcon },

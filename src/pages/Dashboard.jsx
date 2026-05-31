@@ -2,21 +2,77 @@ import { Info } from 'lucide-react'
 import SportStats from '../components/SportStats'
 import Tooltip from '../components/Tooltip'
 
+// ─── Age & Norms ──────────────────────────────────────────────────────────────
+
+function getAge(birthDate) {
+  if (!birthDate) return null
+  const today = new Date()
+  const birth = new Date(birthDate)
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
+}
+
+function getNorms(age) {
+  const vo2 = age < 30 ? { veryPoor: 33, poor: 36, fair: 41, good: 45, excellent: 52 }
+    : age < 40 ? { veryPoor: 31, poor: 34, fair: 38, good: 42, excellent: 48 }
+    : age < 50 ? { veryPoor: 30, poor: 33, fair: 37, good: 41, excellent: 45 }
+    : age < 60 ? { veryPoor: 26, poor: 30, fair: 35, good: 41, excellent: 45 }
+    : { veryPoor: 20, poor: 25, fair: 30, good: 35, excellent: 41 }
+
+  const hr = age < 40 ? { excellent: 55, good: 61, average: 67, poor: 73 }
+    : age < 50 ? { excellent: 57, good: 63, average: 69, poor: 75 }
+    : age < 60 ? { excellent: 58, good: 64, average: 70, poor: 76 }
+    : { excellent: 59, good: 65, average: 71, poor: 77 }
+
+  const hrv = age < 40 ? { good: 60, average: 40, low: 25 }
+    : age < 50 ? { good: 50, average: 35, low: 20 }
+    : age < 60 ? { good: 45, average: 30, low: 18 }
+    : { good: 40, average: 25, low: 15 }
+
+  return { vo2, hr, hrv }
+}
+
+function vo2Badge(val, norms) {
+  const n = norms?.vo2
+  if (!n) return val < 26 ? { label: 'Zeer laag', color: '#ef4444' }
+    : val < 30 ? { label: 'Matig', color: '#f97316' }
+    : val < 35 ? { label: 'Gemiddeld', color: '#eab308' }
+    : val <= 41 ? { label: 'Goed', color: '#84cc16' }
+    : { label: 'Uitstekend', color: '#10b981' }
+  if (val < n.veryPoor) return { label: 'Zeer laag', color: '#ef4444' }
+  if (val < n.poor)     return { label: 'Matig', color: '#f97316' }
+  if (val < n.fair)     return { label: 'Gemiddeld', color: '#eab308' }
+  if (val < n.excellent) return { label: 'Goed', color: '#84cc16' }
+  return { label: 'Uitstekend', color: '#10b981' }
+}
+
+function hrBadge(val, norms) {
+  const n = norms?.hr
+  if (!n) return null
+  if (val <= n.excellent) return { label: 'Uitstekend', color: '#10b981' }
+  if (val <= n.good)      return { label: 'Goed', color: '#84cc16' }
+  if (val <= n.average)   return { label: 'Gemiddeld', color: '#eab308' }
+  return { label: 'Hoog', color: '#ef4444' }
+}
+
+function hrvBadge(val, norms) {
+  const n = norms?.hrv
+  if (!n) return null
+  if (val >= n.good)    return { label: 'Goed', color: '#10b981' }
+  if (val >= n.average) return { label: 'Gemiddeld', color: '#eab308' }
+  return { label: 'Laag', color: '#f97316' }
+}
+
+// ─── Static tooltip strings ───────────────────────────────────────────────────
+
 const TT_SCORE = `Je wekelijkse score op basis van drie pijlers:\n🏋 Training (40 pt) — hoeveel geplande sessies voltooid\n👟 Beweging (30 pt) — dagen met ≥8.000 stappen\n❤️ Conditie (30 pt) — rust-hartslag trend t.o.v. vorige week\nScore 80+ = groen · 60-79 = oranje · <60 = rood`
 const TT_TRAINING = `Geplande sessies dit protocol: Milon (ma + wo), Padel training (do), MTB (zo) = 4 verplichte sessies.\nScore = voltooide sessies ÷ 4 × 40 punten.\nPadel match (za) telt als bonus.`
 const TT_BEWEGING = `Doel: minimaal 8.000 stappen per dag.\nScore = actieve dagen ÷ 7 × 30 punten.\n8.000 stappen = ca. 6 km lopen en is de minimale drempel voor metabole gezondheid op jouw leeftijd.`
 const TT_CONDITIE = `Vergelijkt je gemiddelde rust-hartslag deze week met vorige week. Daling = betere cardiofitness.\nStabiel of daling ≤2 bpm = 15 pt · Daling >2 bpm = 30 pt\nStijging = 0 pt. Rust-HR daalt gemiddeld 1 bpm per 4 weken bij consistent trainen.`
-const TT_VO2 = `VO2 max meet hoe efficiënt je lichaam zuurstof gebruikt tijdens inspanning. Uitgedrukt in ml/kg/min.\nNorm mannen 50-59 jaar: gemiddeld = 38-42.\nStijgt bij consistent Zone 2 cardio (MTB, wandelen).\nMeet Apple Watch dit automatisch bij buitenactiviteiten.`
-const TT_HR = `Je hartslag in rust. Lager = efficiënter hart.\nNorm 54 jaar: 60-70 bpm = goed · <60 = uitstekend.\nDaalt gemiddeld 1-2 bpm per maand bij regelmatig cardio.`
-const TT_HRV = `Hart Rate Variability — variatie tussen hartslagen.\nHoger = beter herstel en minder stress op het zenuwstelsel.\nNorm 54 jaar: 40-60 ms = normaal · >60 ms = goed.\nDaalt bij slechte slaap, alcohol, overtraining.`
 
-function vo2Badge(val) {
-  if (val < 33) return { label: 'Zeer laag', color: '#ef4444' }
-  if (val < 38) return { label: 'Matig', color: '#f97316' }
-  if (val < 43) return { label: 'Gemiddeld', color: '#eab308' }
-  if (val <= 48) return { label: 'Goed', color: '#84cc16' }
-  return { label: 'Uitstekend', color: '#10b981' }
-}
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function Dashboard({ entries, workouts, settings, onSelectDate }) {
   if (entries.length === 0) {
@@ -344,6 +400,9 @@ function VitalsStrip({ entries, settings }) {
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
   const sevenISO = sevenDaysAgo.toISOString().slice(0, 10)
 
+  const age = getAge(settings.birthDate)
+  const norms = age != null ? getNorms(age) : null
+
   const latestWeight = rev.find(e => e.weight != null)?.weight
   const latestHR     = rev.find(e => e.restingHR != null)?.restingHR
   const latestVO2    = rev.find(e => e.vo2Max != null)?.vo2Max
@@ -352,6 +411,20 @@ function VitalsStrip({ entries, settings }) {
   const prevHR       = rev.find(e => e.restingHR != null && e.date <= sevenISO)?.restingHR
   const prevVO2      = rev.find(e => e.vo2Max != null && e.date <= sevenISO)?.vo2Max
   const prevHRV      = rev.find(e => e.hrv != null && e.date <= sevenISO)?.hrv
+
+  // Dynamic tooltip texts incorporating age-specific norms
+  const ageStr = age != null ? ` (${age})` : ''
+  const ttVO2 = norms
+    ? `VO2 max meet hoe efficiënt je lichaam zuurstof gebruikt. Uitgedrukt in ml/kg/min.\nVoor jouw leeftijd${ageStr} is gemiddeld: ${norms.vo2.poor}–${norms.vo2.fair} ml/kg/min.\nStijgt bij consistent Zone 2 cardio (MTB, wandelen).\nMeet Apple Watch dit automatisch bij buitenactiviteiten.`
+    : `VO2 max meet hoe efficiënt je lichaam zuurstof gebruikt tijdens inspanning. Uitgedrukt in ml/kg/min.\nStijgt bij consistent Zone 2 cardio (MTB, wandelen).\nMeet Apple Watch dit automatisch bij buitenactiviteiten.`
+
+  const ttHR = norms
+    ? `Je hartslag in rust. Lager = efficiënter hart.\nVoor jouw leeftijd${ageStr}: goed = ≤${norms.hr.good} bpm · uitstekend = ≤${norms.hr.excellent} bpm.\nDaalt gemiddeld 1-2 bpm per maand bij regelmatig cardio.`
+    : `Je hartslag in rust. Lager = efficiënter hart.\nDaalt gemiddeld 1-2 bpm per maand bij regelmatig cardio.`
+
+  const ttHRV = norms
+    ? `Hart Rate Variability — variatie tussen hartslagen.\nHoger = beter herstel. Voor jouw leeftijd${ageStr}: goed = ≥${norms.hrv.good} ms · gemiddeld = ${norms.hrv.average}–${norms.hrv.good - 1} ms.\nDaalt bij slechte slaap, alcohol, overtraining.`
+    : `Hart Rate Variability — variatie tussen hartslagen.\nHoger = beter herstel en minder stress op het zenuwstelsel.\nDaalt bij slechte slaap, alcohol, overtraining.`
 
   const metrics = [
     {
@@ -371,8 +444,8 @@ function VitalsStrip({ entries, settings }) {
       prev: prevHR,
       higherIsBetter: false,
       fmt: v => String(Math.round(v)),
-      tooltip: TT_HR,
-      badge: null,
+      tooltip: ttHR,
+      badge: latestHR != null ? hrBadge(latestHR, norms) : null,
     },
     {
       label: 'VO₂ max',
@@ -381,8 +454,8 @@ function VitalsStrip({ entries, settings }) {
       prev: prevVO2,
       higherIsBetter: true,
       fmt: v => Number(v).toFixed(1),
-      tooltip: TT_VO2,
-      badge: latestVO2 != null ? vo2Badge(latestVO2) : null,
+      tooltip: ttVO2,
+      badge: latestVO2 != null ? vo2Badge(latestVO2, norms) : null,
     },
     {
       label: 'HRV',
@@ -391,8 +464,8 @@ function VitalsStrip({ entries, settings }) {
       prev: prevHRV,
       higherIsBetter: true,
       fmt: v => String(Math.round(v)),
-      tooltip: TT_HRV,
-      badge: null,
+      tooltip: ttHRV,
+      badge: latestHRV != null ? hrvBadge(latestHRV, norms) : null,
     },
   ]
 
@@ -429,16 +502,17 @@ function VitalsStrip({ entries, settings }) {
                     {m.fmt(m.latest)}
                     {m.unit && <span className="text-xs font-normal text-slate-400 ml-0.5">{m.unit}</span>}
                   </p>
-                  {m.badge && (
+                  {m.badge ? (
                     <span
                       className="inline-block mt-0.5 rounded px-1 text-xs font-semibold leading-tight"
                       style={{ color: m.badge.color, backgroundColor: `${m.badge.color}22` }}
                     >
                       {m.badge.label}
                     </span>
-                  )}
-                  {arrowChar && !m.badge && (
-                    <p className="text-xs mt-0.5 font-medium" style={{ color: arrowColor }}>{arrowChar}</p>
+                  ) : (
+                    arrowChar && (
+                      <p className="text-xs mt-0.5 font-medium" style={{ color: arrowColor }}>{arrowChar}</p>
+                    )
                   )}
                 </>
               ) : (

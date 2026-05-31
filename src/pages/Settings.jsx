@@ -1,6 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { saveSettings, generateHAEToken } from '../lib/db'
+
+function formatImportDate(iso) {
+  const d = new Date(iso)
+  const datePart = d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+  const timePart = d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+  return `${datePart} om ${timePart}`
+}
 
 export default function Settings({ settings, userId, onSettingsChange, supabaseUrl }) {
   const [form, setForm] = useState({ ...settings })
@@ -8,10 +15,25 @@ export default function Settings({ settings, userId, onSettingsChange, supabaseU
   const [tokenCopied, setTokenCopied] = useState(false)
   const [endpointCopied, setEndpointCopied] = useState(false)
   const [testState, setTestState] = useState(null) // null | 'loading' | 'ok' | 'error'
+  const [lastImport, setLastImport] = useState(undefined) // undefined = loading
 
   const endpoint = supabaseUrl
     ? `${supabaseUrl}/functions/v1/health-import`
     : 'https://YOUR_PROJECT.supabase.co/functions/v1/health-import'
+
+  useEffect(() => {
+    async function fetchLastImport() {
+      const { data } = await supabase
+        .from('workouts')
+        .select('imported_at')
+        .eq('user_id', userId)
+        .order('imported_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      setLastImport(data?.imported_at ?? null)
+    }
+    fetchLastImport()
+  }, [userId])
 
   function handleChange(e) {
     setSaved(false)
@@ -27,6 +49,7 @@ export default function Settings({ settings, userId, onSettingsChange, supabaseU
     e.preventDefault()
     const updated = {
       ...form,
+      birthDate: form.birthDate || null,
       startWeight: form.startWeight ? parseFloat(form.startWeight) : null,
       goalWeight: form.goalWeight ? parseFloat(form.goalWeight) : null,
       heightCm: form.heightCm ? parseFloat(form.heightCm) : null,
@@ -146,6 +169,19 @@ export default function Settings({ settings, userId, onSettingsChange, supabaseU
         {/* Body metrics */}
         <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
           <h2 className="text-sm font-semibold text-slate-700">Lichaamsstatistieken</h2>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Geboortedatum</label>
+            <input
+              type="date"
+              name="birthDate"
+              value={form.birthDate ?? ''}
+              onChange={handleChange}
+              className="input"
+            />
+            <p className="text-xs text-slate-400 mt-1">Gebruikt voor leeftijdsspecifieke normen (VO₂ max, HR, HRV).</p>
+          </div>
+
           <WeightField
             label="Lengte"
             name="heightCm"
@@ -177,6 +213,14 @@ export default function Settings({ settings, userId, onSettingsChange, supabaseU
         <div>
           <h2 className="text-sm font-semibold text-slate-700">Apple Health automatisering</h2>
           <p className="text-xs text-slate-400 mt-0.5">Configureer Health Auto Export voor automatische data-import.</p>
+        </div>
+
+        {/* Last import */}
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-slate-400">Laatste import:</span>
+          {lastImport === undefined && <span className="text-slate-300">laden…</span>}
+          {lastImport === null && <span className="text-slate-400 italic">Nog geen imports</span>}
+          {lastImport && <span className="text-slate-600 font-medium">{formatImportDate(lastImport)}</span>}
         </div>
 
         {/* Endpoint */}

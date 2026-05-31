@@ -12,6 +12,7 @@ function defaultSettings() {
     kcalTarget: 1800,
     proteinTarget: 140,
     haeApiToken: null,
+    birthDate: null,
   }
 }
 
@@ -33,6 +34,7 @@ export async function fetchSettings(userId) {
     kcalTarget: data.kcal_target ?? 1800,
     proteinTarget: data.protein_target ?? 140,
     haeApiToken: data.hae_api_token ?? null,
+    birthDate: data.birth_date ?? null,
   }
 }
 
@@ -47,6 +49,7 @@ export async function saveSettings(userId, data) {
     kcal_target: data.kcalTarget ?? null,
     protein_target: data.proteinTarget ?? null,
     hae_api_token: data.haeApiToken ?? null,
+    birth_date: data.birthDate ?? null,
   })
 }
 
@@ -254,10 +257,12 @@ export async function deleteManualData(userId, date) {
 // ─── Workout actions ───────────────────────────────────────────────────────────
 
 export async function confirmWorkoutSport(workoutId, sport) {
-  await supabase
+  const { error } = await supabase
     .from('workouts')
     .update({ sport, sport_confidence: 'high' })
     .eq('id', workoutId)
+  if (error) console.error('confirmWorkoutSport failed:', error)
+  return !error
 }
 
 // ─── Milon details ─────────────────────────────────────────────────────────────
