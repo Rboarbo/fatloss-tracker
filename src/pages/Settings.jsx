@@ -171,6 +171,26 @@ export default function Settings({ settings, userId, onSettingsChange, supabaseU
           <h2 className="text-sm font-semibold text-slate-700">Lichaamsstatistieken</h2>
 
           <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Geslacht</label>
+            <div className="flex rounded-xl overflow-hidden border border-slate-200">
+              {[{ value: 'male', label: 'Man' }, { value: 'female', label: 'Vrouw' }].map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => { setSaved(false); setForm(f => ({ ...f, gender: value })) }}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                    form.gender === value
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-white text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Geboortedatum</label>
             <input
               type="date"

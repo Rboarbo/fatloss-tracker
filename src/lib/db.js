@@ -13,6 +13,7 @@ function defaultSettings() {
     proteinTarget: 140,
     haeApiToken: null,
     birthDate: null,
+    gender: 'male',
   }
 }
 
@@ -35,6 +36,7 @@ export async function fetchSettings(userId) {
     proteinTarget: data.protein_target ?? 140,
     haeApiToken: data.hae_api_token ?? null,
     birthDate: data.birth_date ?? null,
+    gender: data.gender ?? 'male',
   }
 }
 
@@ -50,6 +52,7 @@ export async function saveSettings(userId, data) {
     protein_target: data.proteinTarget ?? null,
     hae_api_token: data.haeApiToken ?? null,
     birth_date: data.birthDate ?? null,
+    gender: data.gender ?? 'male',
   })
 }
 

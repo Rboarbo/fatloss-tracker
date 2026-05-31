@@ -14,13 +14,54 @@ function getAge(birthDate) {
   return age
 }
 
-function getNorms(age) {
-  const vo2 = age < 30 ? { veryPoor: 33, poor: 36, fair: 41, good: 45, excellent: 52 }
-    : age < 40 ? { veryPoor: 31, poor: 34, fair: 38, good: 42, excellent: 48 }
-    : age < 50 ? { veryPoor: 30, poor: 33, fair: 37, good: 41, excellent: 45 }
-    : age < 60 ? { veryPoor: 26, poor: 30, fair: 35, good: 41, excellent: 45 }
-    : { veryPoor: 20, poor: 25, fair: 30, good: 35, excellent: 41 }
+// VO2 max normen gebaseerd op sportzorg.nl
+const VO2_NORMS = {
+  male: [
+    { maxAge: 24, zeerSlecht: 32, slecht: 37, redelijk: 43, gemiddeld: 50, goed: 56, zeerGoed: 62 },
+    { maxAge: 29, zeerSlecht: 31, slecht: 35, redelijk: 42, gemiddeld: 48, goed: 53, zeerGoed: 59 },
+    { maxAge: 34, zeerSlecht: 29, slecht: 34, redelijk: 40, gemiddeld: 45, goed: 51, zeerGoed: 56 },
+    { maxAge: 39, zeerSlecht: 28, slecht: 32, redelijk: 38, gemiddeld: 43, goed: 48, zeerGoed: 54 },
+    { maxAge: 44, zeerSlecht: 26, slecht: 31, redelijk: 35, gemiddeld: 41, goed: 46, zeerGoed: 51 },
+    { maxAge: 49, zeerSlecht: 25, slecht: 29, redelijk: 34, gemiddeld: 39, goed: 43, zeerGoed: 48 },
+    { maxAge: 54, zeerSlecht: 24, slecht: 27, redelijk: 32, gemiddeld: 36, goed: 41, zeerGoed: 46 },
+    { maxAge: 59, zeerSlecht: 22, slecht: 26, redelijk: 30, gemiddeld: 34, goed: 39, zeerGoed: 43 },
+    { maxAge: 999, zeerSlecht: 21, slecht: 24, redelijk: 28, gemiddeld: 32, goed: 36, zeerGoed: 40 },
+  ],
+  female: [
+    { maxAge: 24, zeerSlecht: 27, slecht: 31, redelijk: 36, gemiddeld: 41, goed: 46, zeerGoed: 51 },
+    { maxAge: 29, zeerSlecht: 26, slecht: 30, redelijk: 35, gemiddeld: 40, goed: 44, zeerGoed: 49 },
+    { maxAge: 34, zeerSlecht: 25, slecht: 29, redelijk: 33, gemiddeld: 37, goed: 42, zeerGoed: 46 },
+    { maxAge: 39, zeerSlecht: 24, slecht: 27, redelijk: 31, gemiddeld: 35, goed: 40, zeerGoed: 44 },
+    { maxAge: 44, zeerSlecht: 22, slecht: 25, redelijk: 29, gemiddeld: 33, goed: 37, zeerGoed: 41 },
+    { maxAge: 49, zeerSlecht: 21, slecht: 23, redelijk: 27, gemiddeld: 31, goed: 35, zeerGoed: 38 },
+    { maxAge: 54, zeerSlecht: 19, slecht: 22, redelijk: 25, gemiddeld: 29, goed: 32, zeerGoed: 36 },
+    { maxAge: 59, zeerSlecht: 18, slecht: 20, redelijk: 23, gemiddeld: 27, goed: 30, zeerGoed: 33 },
+    { maxAge: 999, zeerSlecht: 16, slecht: 18, redelijk: 21, gemiddeld: 24, goed: 27, zeerGoed: 30 },
+  ],
+}
 
+function getVO2Category(vo2, age, gender = 'male') {
+  const table = VO2_NORMS[gender] ?? VO2_NORMS.male
+  const row = table.find(r => age <= r.maxAge) ?? table[table.length - 1]
+  if (vo2 <= row.zeerSlecht) return { label: 'Zeer slecht', color: '#ef4444', row }
+  if (vo2 <= row.slecht)     return { label: 'Slecht',      color: '#f97316', row }
+  if (vo2 <= row.redelijk)   return { label: 'Redelijk',    color: '#eab308', row }
+  if (vo2 <= row.gemiddeld)  return { label: 'Gemiddeld',   color: '#84cc16', row }
+  if (vo2 <= row.goed)       return { label: 'Goed',        color: '#22c55e', row }
+  if (vo2 <= row.zeerGoed)   return { label: 'Zeer goed',   color: '#10b981', row }
+  return                            { label: 'Uitstekend',  color: '#06b6d4', row }
+}
+
+function getVO2AgeBucket(age, gender) {
+  const table = VO2_NORMS[gender] ?? VO2_NORMS.male
+  const idx = table.findIndex(r => age <= r.maxAge)
+  const row = idx === -1 ? table[table.length - 1] : table[idx]
+  const maxAge = row.maxAge === 999 ? '60+' : row.maxAge
+  const minAge = idx <= 0 ? 18 : table[idx - 1].maxAge + 1
+  return `${minAge}–${maxAge}`
+}
+
+function getNorms(age) {
   const hr = age < 40 ? { excellent: 55, good: 61, average: 67, poor: 73 }
     : age < 50 ? { excellent: 57, good: 63, average: 69, poor: 75 }
     : age < 60 ? { excellent: 58, good: 64, average: 70, poor: 76 }
@@ -31,21 +72,7 @@ function getNorms(age) {
     : age < 60 ? { good: 45, average: 30, low: 18 }
     : { good: 40, average: 25, low: 15 }
 
-  return { vo2, hr, hrv }
-}
-
-function vo2Badge(val, norms) {
-  const n = norms?.vo2
-  if (!n) return val < 26 ? { label: 'Zeer laag', color: '#ef4444' }
-    : val < 30 ? { label: 'Matig', color: '#f97316' }
-    : val < 35 ? { label: 'Gemiddeld', color: '#eab308' }
-    : val <= 41 ? { label: 'Goed', color: '#84cc16' }
-    : { label: 'Uitstekend', color: '#10b981' }
-  if (val < n.veryPoor) return { label: 'Zeer laag', color: '#ef4444' }
-  if (val < n.poor)     return { label: 'Matig', color: '#f97316' }
-  if (val < n.fair)     return { label: 'Gemiddeld', color: '#eab308' }
-  if (val < n.excellent) return { label: 'Goed', color: '#84cc16' }
-  return { label: 'Uitstekend', color: '#10b981' }
+  return { hr, hrv }
 }
 
 function hrBadge(val, norms) {
@@ -400,8 +427,9 @@ function VitalsStrip({ entries, settings }) {
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
   const sevenISO = sevenDaysAgo.toISOString().slice(0, 10)
 
-  const age = getAge(settings.birthDate)
-  const norms = age != null ? getNorms(age) : null
+  const age    = getAge(settings.birthDate)
+  const gender = settings.gender ?? 'male'
+  const norms  = age != null ? getNorms(age) : null
 
   const latestWeight = rev.find(e => e.weight != null)?.weight
   const latestHR     = rev.find(e => e.restingHR != null)?.restingHR
@@ -412,18 +440,26 @@ function VitalsStrip({ entries, settings }) {
   const prevVO2      = rev.find(e => e.vo2Max != null && e.date <= sevenISO)?.vo2Max
   const prevHRV      = rev.find(e => e.hrv != null && e.date <= sevenISO)?.hrv
 
-  // Dynamic tooltip texts incorporating age-specific norms
-  const ageStr = age != null ? ` (${age})` : ''
-  const ttVO2 = norms
-    ? `VO2 max meet hoe efficiënt je lichaam zuurstof gebruikt. Uitgedrukt in ml/kg/min.\nVoor jouw leeftijd${ageStr} is gemiddeld: ${norms.vo2.poor}–${norms.vo2.fair} ml/kg/min.\nStijgt bij consistent Zone 2 cardio (MTB, wandelen).\nMeet Apple Watch dit automatisch bij buitenactiviteiten.`
-    : `VO2 max meet hoe efficiënt je lichaam zuurstof gebruikt tijdens inspanning. Uitgedrukt in ml/kg/min.\nStijgt bij consistent Zone 2 cardio (MTB, wandelen).\nMeet Apple Watch dit automatisch bij buitenactiviteiten.`
+  // VO2 badge & dynamic tooltip
+  const vo2Cat   = (latestVO2 != null && age != null) ? getVO2Category(latestVO2, age, gender) : null
+  const vo2Bucket = age != null ? getVO2AgeBucket(age, gender) : null
+  const genderNL = gender === 'female' ? 'vrouwen' : 'mannen'
 
+  let ttVO2
+  if (vo2Cat && age != null) {
+    const r = vo2Cat.row
+    ttVO2 = `Jouw VO2 max: ${Number(latestVO2).toFixed(1)} → ${vo2Cat.label}\nNorm voor ${genderNL} ${vo2Bucket} jaar:\n- Redelijk: ${r.slecht + 1}–${r.redelijk} · Gemiddeld: ${r.redelijk + 1}–${r.gemiddeld}\n- Goed: ${r.gemiddeld + 1}–${r.goed} · Zeer goed: ${r.goed + 1}–${r.zeerGoed} · Uitstekend: >${r.zeerGoed}\nVerbetert bij Zone 2 cardio (MTB, wandelen op 115-135 bpm).\n\nBron: sportzorg.nl`
+  } else {
+    ttVO2 = `VO2 max meet hoe efficiënt je lichaam zuurstof gebruikt. Uitgedrukt in ml/kg/min.\nVoeg geboortedatum toe in Instellingen voor leeftijdsspecifieke normen.\nVerbetert bij Zone 2 cardio (MTB, wandelen op 115-135 bpm).`
+  }
+
+  // HR & HRV dynamic tooltips
   const ttHR = norms
-    ? `Je hartslag in rust. Lager = efficiënter hart.\nVoor jouw leeftijd${ageStr}: goed = ≤${norms.hr.good} bpm · uitstekend = ≤${norms.hr.excellent} bpm.\nDaalt gemiddeld 1-2 bpm per maand bij regelmatig cardio.`
+    ? `Je hartslag in rust. Lager = efficiënter hart.\nVoor jouw leeftijd (${age}): goed = ≤${norms.hr.good} bpm · uitstekend = ≤${norms.hr.excellent} bpm.\nDaalt gemiddeld 1-2 bpm per maand bij regelmatig cardio.`
     : `Je hartslag in rust. Lager = efficiënter hart.\nDaalt gemiddeld 1-2 bpm per maand bij regelmatig cardio.`
 
   const ttHRV = norms
-    ? `Hart Rate Variability — variatie tussen hartslagen.\nHoger = beter herstel. Voor jouw leeftijd${ageStr}: goed = ≥${norms.hrv.good} ms · gemiddeld = ${norms.hrv.average}–${norms.hrv.good - 1} ms.\nDaalt bij slechte slaap, alcohol, overtraining.`
+    ? `Hart Rate Variability — variatie tussen hartslagen.\nHoger = beter herstel. Voor jouw leeftijd (${age}): goed = ≥${norms.hrv.good} ms · gemiddeld = ${norms.hrv.average}–${norms.hrv.good - 1} ms.\nDaalt bij slechte slaap, alcohol, overtraining.`
     : `Hart Rate Variability — variatie tussen hartslagen.\nHoger = beter herstel en minder stress op het zenuwstelsel.\nDaalt bij slechte slaap, alcohol, overtraining.`
 
   const metrics = [
@@ -455,7 +491,7 @@ function VitalsStrip({ entries, settings }) {
       higherIsBetter: true,
       fmt: v => Number(v).toFixed(1),
       tooltip: ttVO2,
-      badge: latestVO2 != null ? vo2Badge(latestVO2, norms) : null,
+      badge: vo2Cat ? { label: vo2Cat.label, color: vo2Cat.color } : null,
     },
     {
       label: 'HRV',
