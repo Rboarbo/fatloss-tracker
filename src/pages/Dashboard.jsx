@@ -1,4 +1,22 @@
+import { Info } from 'lucide-react'
 import SportStats from '../components/SportStats'
+import Tooltip from '../components/Tooltip'
+
+const TT_SCORE = `Je wekelijkse score op basis van drie pijlers:\n🏋 Training (40 pt) — hoeveel geplande sessies voltooid\n👟 Beweging (30 pt) — dagen met ≥8.000 stappen\n❤️ Conditie (30 pt) — rust-hartslag trend t.o.v. vorige week\nScore 80+ = groen · 60-79 = oranje · <60 = rood`
+const TT_TRAINING = `Geplande sessies dit protocol: Milon (ma + wo), Padel training (do), MTB (zo) = 4 verplichte sessies.\nScore = voltooide sessies ÷ 4 × 40 punten.\nPadel match (za) telt als bonus.`
+const TT_BEWEGING = `Doel: minimaal 8.000 stappen per dag.\nScore = actieve dagen ÷ 7 × 30 punten.\n8.000 stappen = ca. 6 km lopen en is de minimale drempel voor metabole gezondheid op jouw leeftijd.`
+const TT_CONDITIE = `Vergelijkt je gemiddelde rust-hartslag deze week met vorige week. Daling = betere cardiofitness.\nStabiel of daling ≤2 bpm = 15 pt · Daling >2 bpm = 30 pt\nStijging = 0 pt. Rust-HR daalt gemiddeld 1 bpm per 4 weken bij consistent trainen.`
+const TT_VO2 = `VO2 max meet hoe efficiënt je lichaam zuurstof gebruikt tijdens inspanning. Uitgedrukt in ml/kg/min.\nNorm mannen 50-59 jaar: gemiddeld = 38-42.\nStijgt bij consistent Zone 2 cardio (MTB, wandelen).\nMeet Apple Watch dit automatisch bij buitenactiviteiten.`
+const TT_HR = `Je hartslag in rust. Lager = efficiënter hart.\nNorm 54 jaar: 60-70 bpm = goed · <60 = uitstekend.\nDaalt gemiddeld 1-2 bpm per maand bij regelmatig cardio.`
+const TT_HRV = `Hart Rate Variability — variatie tussen hartslagen.\nHoger = beter herstel en minder stress op het zenuwstelsel.\nNorm 54 jaar: 40-60 ms = normaal · >60 ms = goed.\nDaalt bij slechte slaap, alcohol, overtraining.`
+
+function vo2Badge(val) {
+  if (val < 33) return { label: 'Zeer laag', color: '#ef4444' }
+  if (val < 38) return { label: 'Matig', color: '#f97316' }
+  if (val < 43) return { label: 'Gemiddeld', color: '#eab308' }
+  if (val <= 48) return { label: 'Goed', color: '#84cc16' }
+  return { label: 'Uitstekend', color: '#10b981' }
+}
 
 export default function Dashboard({ entries, workouts, settings, onSelectDate }) {
   if (entries.length === 0) {
@@ -23,17 +41,12 @@ export default function Dashboard({ entries, workouts, settings, onSelectDate })
     <div className="space-y-4">
 
       {/* 1. Header */}
-      <div className="flex items-start justify-between pt-1">
-        <div>
-          <h1 className="font-serif text-3xl text-slate-900 leading-tight">Cut Protocol</h1>
-          <p className="text-xs text-slate-400 mt-0.5 capitalize">{todayNL}</p>
-        </div>
+      <div className="flex items-center justify-between pt-1">
+        <p className="text-xs text-slate-400 capitalize">{todayNL}</p>
         {weekNum != null && (
-          <div className="text-right mt-1">
-            <span className="text-sm font-semibold text-orange-500">
-              Week {Math.min(weekNum, 12)} van 12
-            </span>
-          </div>
+          <span className="text-sm font-semibold text-orange-500">
+            Week {Math.min(weekNum, 12)} van 12
+          </span>
         )}
       </div>
 
@@ -111,7 +124,6 @@ function BodyCompositionCard({ entries }) {
     <div className="bg-white rounded-2xl p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-700 mb-3">Lichaamssamenstelling</h2>
 
-      {/* Stacked bar */}
       {fatBarPct != null && (
         <div className="mb-4">
           <div className="flex justify-between text-xs text-slate-500 mb-1.5">
@@ -125,7 +137,6 @@ function BodyCompositionCard({ entries }) {
         </div>
       )}
 
-      {/* Two stat blocks */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <p className="text-3xl font-bold text-amber-500 leading-none">
@@ -153,7 +164,6 @@ function BodyCompositionCard({ entries }) {
         )}
       </div>
 
-      {/* Interpretation */}
       {interpretation && (
         <p className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-100">
           {interpretation}
@@ -228,7 +238,12 @@ function PerformanceScoreCard({ entries }) {
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-slate-700">Performance Score</h2>
+        <div className="flex items-center gap-1">
+          <h2 className="text-sm font-semibold text-slate-700">Performance Score</h2>
+          <Tooltip content={TT_SCORE}>
+            <Info size={14} color="#737373" />
+          </Tooltip>
+        </div>
         <span className="text-xs text-slate-400">deze week</span>
       </div>
 
@@ -245,9 +260,9 @@ function PerformanceScoreCard({ entries }) {
       </div>
 
       <div className="mt-4 space-y-2">
-        <BreakdownBar label="🏋 Training" score={score.training} max={40} color="#f97316" />
-        <BreakdownBar label="👟 Beweging" score={score.steps} max={30} color="#10b981" />
-        <BreakdownBar label="❤️ Conditie" score={score.cardio} max={30} color="#a78bfa" />
+        <BreakdownBar label="🏋 Training" score={score.training} max={40} color="#f97316" tooltip={TT_TRAINING} />
+        <BreakdownBar label="👟 Beweging" score={score.steps} max={30} color="#10b981" tooltip={TT_BEWEGING} />
+        <BreakdownBar label="❤️ Conditie" score={score.cardio} max={30} color="#a78bfa" tooltip={TT_CONDITIE} />
       </div>
     </div>
   )
@@ -299,10 +314,17 @@ function MiniDonut({ score, size = 48 }) {
   )
 }
 
-function BreakdownBar({ label, score, max, color }) {
+function BreakdownBar({ label, score, max, color, tooltip }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-slate-500 w-24 flex-shrink-0">{label}</span>
+      <span className="flex items-center gap-1 text-xs text-slate-500 w-24 flex-shrink-0">
+        {label}
+        {tooltip && (
+          <Tooltip content={tooltip}>
+            <Info size={11} color="#737373" />
+          </Tooltip>
+        )}
+      </span>
       <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full"
@@ -322,38 +344,55 @@ function VitalsStrip({ entries, settings }) {
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
   const sevenISO = sevenDaysAgo.toISOString().slice(0, 10)
 
+  const latestWeight = rev.find(e => e.weight != null)?.weight
+  const latestHR     = rev.find(e => e.restingHR != null)?.restingHR
+  const latestVO2    = rev.find(e => e.vo2Max != null)?.vo2Max
+  const latestHRV    = rev.find(e => e.hrv != null)?.hrv
+  const prevWeight   = rev.find(e => e.weight != null && e.date <= sevenISO)?.weight
+  const prevHR       = rev.find(e => e.restingHR != null && e.date <= sevenISO)?.restingHR
+  const prevVO2      = rev.find(e => e.vo2Max != null && e.date <= sevenISO)?.vo2Max
+  const prevHRV      = rev.find(e => e.hrv != null && e.date <= sevenISO)?.hrv
+
   const metrics = [
     {
       label: 'Gewicht',
       unit: settings.unit ?? 'kg',
-      latest: rev.find(e => e.weight != null)?.weight,
-      prev: rev.find(e => e.weight != null && e.date <= sevenISO)?.weight,
+      latest: latestWeight,
+      prev: prevWeight,
       higherIsBetter: false,
       fmt: v => Number(v).toFixed(1),
+      tooltip: null,
+      badge: null,
     },
     {
       label: 'Rust-HR',
       unit: 'bpm',
-      latest: rev.find(e => e.restingHR != null)?.restingHR,
-      prev: rev.find(e => e.restingHR != null && e.date <= sevenISO)?.restingHR,
+      latest: latestHR,
+      prev: prevHR,
       higherIsBetter: false,
       fmt: v => String(Math.round(v)),
+      tooltip: TT_HR,
+      badge: null,
     },
     {
       label: 'VO₂ max',
       unit: '',
-      latest: rev.find(e => e.vo2Max != null)?.vo2Max,
-      prev: rev.find(e => e.vo2Max != null && e.date <= sevenISO)?.vo2Max,
+      latest: latestVO2,
+      prev: prevVO2,
       higherIsBetter: true,
       fmt: v => Number(v).toFixed(1),
+      tooltip: TT_VO2,
+      badge: latestVO2 != null ? vo2Badge(latestVO2) : null,
     },
     {
       label: 'HRV',
       unit: 'ms',
-      latest: rev.find(e => e.hrv != null)?.hrv,
-      prev: rev.find(e => e.hrv != null && e.date <= sevenISO)?.hrv,
+      latest: latestHRV,
+      prev: prevHRV,
       higherIsBetter: true,
       fmt: v => String(Math.round(v)),
+      tooltip: TT_HRV,
+      badge: null,
     },
   ]
 
@@ -376,14 +415,29 @@ function VitalsStrip({ entries, settings }) {
 
           return (
             <div key={m.label} className="text-center px-2 first:pl-0 last:pr-0">
-              <p className="text-xs text-slate-400 leading-tight mb-1">{m.label}</p>
+              <div className="flex items-center justify-center gap-0.5 mb-1">
+                <span className="text-xs text-slate-400 leading-tight">{m.label}</span>
+                {m.tooltip && (
+                  <Tooltip content={m.tooltip}>
+                    <Info size={11} color="#737373" />
+                  </Tooltip>
+                )}
+              </div>
               {m.latest != null ? (
                 <>
                   <p className="text-base font-bold text-slate-800 leading-none">
                     {m.fmt(m.latest)}
                     {m.unit && <span className="text-xs font-normal text-slate-400 ml-0.5">{m.unit}</span>}
                   </p>
-                  {arrowChar && (
+                  {m.badge && (
+                    <span
+                      className="inline-block mt-0.5 rounded px-1 text-xs font-semibold leading-tight"
+                      style={{ color: m.badge.color, backgroundColor: `${m.badge.color}22` }}
+                    >
+                      {m.badge.label}
+                    </span>
+                  )}
+                  {arrowChar && !m.badge && (
                     <p className="text-xs mt-0.5 font-medium" style={{ color: arrowColor }}>{arrowChar}</p>
                   )}
                 </>

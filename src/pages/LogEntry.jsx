@@ -211,8 +211,8 @@ export default function LogEntry({ entries, workouts, settings, initialDate, use
           {existing?.weight != null && (
             <p className="text-xs text-slate-400 mt-1">
               {existing._fromAppleHealth
-                ? `🍎 ${existing.weight} ${settings.unit} via Apple Health`
-                : `Opgeslagen: ${existing.weight} ${settings.unit}`}
+                ? `🍎 ${Number(existing.weight).toFixed(1)} ${settings.unit} via Apple Health`
+                : `Opgeslagen: ${Number(existing.weight).toFixed(1)} ${settings.unit}`}
             </p>
           )}
         </div>
@@ -418,7 +418,7 @@ export default function LogEntry({ entries, workouts, settings, initialDate, use
                     <tr key={e.date} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-2.5 text-slate-500 text-xs whitespace-nowrap">{e.date}</td>
                       <td className="px-4 py-2.5 font-semibold text-slate-800 whitespace-nowrap">
-                        {e.weight != null ? `${e.weight} ${settings.unit}` : '—'}
+                        {e.weight != null ? `${Number(e.weight).toFixed(1)} ${settings.unit}` : '—'}
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex flex-col gap-1">
